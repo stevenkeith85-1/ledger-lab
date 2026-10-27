@@ -1,0 +1,246 @@
+{
+  "block": {
+    "block_hash_hex": "74997fc02ad9d0552cc51715d20c1d025602e0e12846b8c09184f2c425c51533",
+    "description": "Header fixture. tx_root commits to the transaction ids in tx_names order. The all-zero prev_block_hash pins the genesis previous-hash bytes. Height 42 keeps the u64 endianness visible. This fixture is not a consensus-valid block: coinbase rules are SCRUM-16 and proof-of-authority policy is SCRUM-19.",
+    "fields": {
+      "height": 42,
+      "prev_block_hash_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "proposer_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "timestamp_ms": 1735689600000,
+      "tx_root_hex": "7c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f",
+      "version": 1
+    },
+    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+    "proposer_key": {
+      "key_id": "A",
+      "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "warning": "TEST ONLY - never use these keys for real value"
+    },
+    "proposer_signature_hex": "88e31662bddb0887a65306234a100f869fe21fd6f291687c92b115a967fb9f8d682795287f30503fac48234e50f698bf79272cfa8c644c04120ff41cfbe65209",
+    "tx_ids_hex": [
+      "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
+      "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
+      "1bb560646ac63df76912f34cd868010bf229a251b125f1b6265a9a3b27c3f04f",
+      "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07"
+    ],
+    "tx_names": [
+      "sample",
+      "normal",
+      "min_amount",
+      "max_amount"
+    ]
+  },
+  "constants": {
+    "block_header_field_order": [
+      "version",
+      "height",
+      "prev_block_hash",
+      "tx_root",
+      "timestamp_ms",
+      "proposer_public_key"
+    ],
+    "block_preimage": "BLOCK_TAG || header",
+    "block_tag_ascii": "LedgerLab/block/v1",
+    "block_tag_hex": "4c65646765724c61622f626c6f636b2f763100",
+    "endianness": "unsigned-big-endian",
+    "hash": "SHA-256",
+    "input_count_max": 1000,
+    "input_count_min": 0,
+    "input_field_order": [
+      "prev_tx_id",
+      "output_index"
+    ],
+    "max_amount": 9007199254740991,
+    "output_count_max": 1000,
+    "output_count_min": 1,
+    "output_field_order": [
+      "amount",
+      "recipient_public_key"
+    ],
+    "signature": "Ed25519-RFC8032",
+    "tx_body_field_order": [
+      "version",
+      "input_count",
+      "inputs",
+      "output_count",
+      "outputs"
+    ],
+    "tx_id_preimage": "TX_TAG || tx_body",
+    "tx_root": "SHA-256 of the raw 32-byte transaction ids concatenated in block order",
+    "tx_signing_preimage": "TX_TAG || tx_body",
+    "tx_tag_ascii": "LedgerLab/tx/v1",
+    "tx_tag_hex": "4c65646765724c61622f74782f763100",
+    "version": 1
+  },
+  "keys": [
+    {
+      "key_id": "A",
+      "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "warning": "TEST ONLY - never use these keys for real value"
+    },
+    {
+      "key_id": "B",
+      "public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "seed_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "warning": "TEST ONLY - never use these keys for real value"
+    }
+  ],
+  "notes": "TEST ONLY keys. signing_preimage_hex and tx_id_preimage_hex name the two transaction preimages; both are TX_TAG || tx_body, signatures excluded. signatures_hex[i] was produced by signing_keys[i] over that preimage and aligns with fields.inputs[i]. signer identity is not a serialised field. The block preimage is BLOCK_TAG || header; the proposer signature is excluded from the block hash. tx_root hashes raw transaction-id bytes, not their hex text. Amounts in this file are JSON integers because every fixture value is inside the safe range; the node JSON API still sends decimal strings (ADR 0002).",
+  "transactions": [
+    {
+      "body_hex": "00000001000000011111111111111111111111111111111111111111111111111111111111111111000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "description": "One input, one output, amount 1000. Signed by test key A.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 0,
+            "prev_tx_id_hex": "1111111111111111111111111111111111111111111111111111111111111111"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 1000,
+            "recipient_public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+          }
+        ],
+        "version": 1
+      },
+      "name": "sample",
+      "signatures_hex": [
+        "ac045a7a40269e448b5d87dc164d2ab6d9561df73535a12f2d48731669798ae6d0c13e07212f6f247317cf00340972e12d01a020acf2c029284bbe76a6deac05"
+      ],
+      "signing_keys": [
+        {
+          "key_id": "A",
+          "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+          "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        }
+      ],
+      "signing_preimage_hex": "4c65646765724c61622f74782f76310000000001000000011111111111111111111111111111111111111111111111111111111111111111000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "tx_id_hex": "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f76310000000001000000011111111111111111111111111111111111111111111111111111111111111111000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+    },
+    {
+      "body_hex": "00000001000000022121212121212121212121212121212121212121212121212121212121212121000000002222222222222222222222222222222222222222222222222222222222222222000100030000000200000000000003e803a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000010000000129acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "description": "Two inputs and two outputs. Input 0 is signed by A, input 1 by B. The second output index is 2**16+3 and the second amount is 2**32+1.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 0,
+            "prev_tx_id_hex": "2121212121212121212121212121212121212121212121212121212121212121"
+          },
+          {
+            "output_index": 65539,
+            "prev_tx_id_hex": "2222222222222222222222222222222222222222222222222222222222222222"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 1000,
+            "recipient_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+          },
+          {
+            "amount": 4294967297,
+            "recipient_public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+          }
+        ],
+        "version": 1
+      },
+      "name": "normal",
+      "signatures_hex": [
+        "ebd251b2f14436da31fb08b3d41905994cce2050a38d8c3212f2ad979dc0789010af3b66eb7d13f75f0be64cc1103aa94b8d3fb62968ae8f21209e216b800501",
+        "15e4e8127ddfbfe713987bd52f623b4ea6a5156b1a02464dd67393815cd420a0db4a16d342e76feb744a078d6535fb93b29eb8f748b2a95c9f85618c6aefc202"
+      ],
+      "signing_keys": [
+        {
+          "key_id": "A",
+          "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+          "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        },
+        {
+          "key_id": "B",
+          "public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+          "seed_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        }
+      ],
+      "signing_preimage_hex": "4c65646765724c61622f74782f76310000000001000000022121212121212121212121212121212121212121212121212121212121212121000000002222222222222222222222222222222222222222222222222222222222222222000100030000000200000000000003e803a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000010000000129acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "tx_id_hex": "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f76310000000001000000022121212121212121212121212121212121212121212121212121212121212121000000002222222222222222222222222222222222222222222222222222222222222222000100030000000200000000000003e803a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000010000000129acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+    },
+    {
+      "body_hex": "000000010000000131313131313131313131313131313131313131313131313131313131313131310000000000000001000000000000000129acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "description": "Single output of amount 1, the minimum legal amount. Signed by A.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 0,
+            "prev_tx_id_hex": "3131313131313131313131313131313131313131313131313131313131313131"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 1,
+            "recipient_public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+          }
+        ],
+        "version": 1
+      },
+      "name": "min_amount",
+      "signatures_hex": [
+        "492fb5234254af506968b229f88bfc89777f2ccba6ba5a2a98a0ed6b50eea9d8f01b5e1f6601cd9354ea2ad528c09ab381f681f15e6d9bbe6dfab6f312291101"
+      ],
+      "signing_keys": [
+        {
+          "key_id": "A",
+          "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+          "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        }
+      ],
+      "signing_preimage_hex": "4c65646765724c61622f74782f763100000000010000000131313131313131313131313131313131313131313131313131313131313131310000000000000001000000000000000129acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "tx_id_hex": "1bb560646ac63df76912f34cd868010bf229a251b125f1b6265a9a3b27c3f04f",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f763100000000010000000131313131313131313131313131313131313131313131313131313131313131310000000000000001000000000000000129acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+    },
+    {
+      "body_hex": "000000010000000132323232323232323232323232323232323232323232323232323232323232320000000000000001001fffffffffffff03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "description": "Single output of amount 2**53-1, the maximum legal amount. Signed by B.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 0,
+            "prev_tx_id_hex": "3232323232323232323232323232323232323232323232323232323232323232"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 9007199254740991,
+            "recipient_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+          }
+        ],
+        "version": 1
+      },
+      "name": "max_amount",
+      "signatures_hex": [
+        "1259e4d3383d2b46c719081823e859bbe7a56edd30ce9b49998c9da2a723600cdf6ab5453011a6a47f6b649e7552428e13dac568ff92fc93717a3da47a0fd60b"
+      ],
+      "signing_keys": [
+        {
+          "key_id": "B",
+          "public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+          "seed_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        }
+      ],
+      "signing_preimage_hex": "4c65646765724c61622f74782f763100000000010000000132323232323232323232323232323232323232323232323232323232323232320000000000000001001fffffffffffff03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "tx_id_hex": "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f763100000000010000000132323232323232323232323232323232323232323232323232323232323232320000000000000001001fffffffffffff03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+    }
+  ],
+  "warning": "TEST ONLY - never use these keys for real value"
+}

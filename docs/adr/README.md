@@ -10,12 +10,12 @@ Each ADR uses these sections:
 4. **Decision** — the normative rule. An implementer should be able to code from this section.
 5. **Consequences** — what follows, including non-functional effects, verification, and open points.
 
-Status sits at the top of the file so a reader sees it first. A change of mind is a new ADR that marks the old one `Superseded`. Accepted ADRs stay in this directory.
+Status sits at the top of the file so a reader sees it first. An ADR is accepted when its PR is merged by the principal engineer. A change of mind is a new ADR that marks the old one `Superseded`. Accepted ADRs stay in this directory.
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0001](0001-canonical-serialisation.md) | Canonical serialisation | Proposed |
-| [0002](0002-integer-amounts.md) | Integer amounts | Proposed |
+| [0001](0001-canonical-serialisation.md) | Canonical serialisation | Accepted |
+| [0002](0002-integer-amounts.md) | Integer amounts | Accepted |
 
 Machine-readable vectors for ADR 0001 and ADR 0002 live in [vectors/serialisation.json](vectors/serialisation.json). Regenerate that file with [vectors/generate.py](vectors/generate.py); do not edit it by hand.
 

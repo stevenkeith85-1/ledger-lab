@@ -1,12 +1,12 @@
 # ADR 0002: Integer amounts
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-27
 - **Ticket:** [SCRUM-14](https://stevenkeith85.atlassian.net/browse/SCRUM-14)
 
 ## Status
 
-Proposed.
+Accepted.
 
 ## Context
 

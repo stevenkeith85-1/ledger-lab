@@ -1,0 +1,44 @@
+[project]
+name = "ledger-lab"
+version = "0.1.0"
+description = "Ledger Lab node"
+readme = "README.md"
+requires-python = ">=3.15"
+dependencies = [
+    "psycopg[binary]>=3.3.6",
+]
+
+[project.scripts]
+ledger-lab = "ledger_lab.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.0",
+    "pre-commit>=4.7.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.3",
+]
+
+[tool.uv]
+required-version = "==0.13.6"
+
+[tool.ruff]
+target-version = "py315"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM", "RUF", "ANN", "RET", "C4", "A", "TID"]
+
+[tool.mypy]
+strict = true
+python_version = "3.15"
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+addopts = ["-ra", "--strict-config", "--strict-markers"]
+testpaths = ["tests"]

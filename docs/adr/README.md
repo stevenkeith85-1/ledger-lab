@@ -16,6 +16,7 @@ Status sits at the top of the file so a reader sees it first. An ADR is accepted
 | --- | --- | --- |
 | [0001](0001-canonical-serialisation.md) | Canonical serialisation | Accepted |
 | [0002](0002-integer-amounts.md) | Integer amounts | Accepted |
+| [0003](0003-consensus-proof-of-work.md) | Consensus: proof of work | Accepted |
 
 Machine-readable vectors for ADR 0001 and ADR 0002 live in [vectors/serialisation.json](vectors/serialisation.json). Regenerate that file with [vectors/generate.py](vectors/generate.py); do not edit it by hand.
 
@@ -25,4 +26,4 @@ python docs/adr/vectors/generate.py
 
 ## AGENTS.md
 
-[SCRUM-13](https://stevenkeith85.atlassian.net/browse/SCRUM-13) owns `AGENTS.md`. When that file lands, it should link to this index and to the two ADRs above, and it should not copy the byte layout or the amount rules. This change does not add that line.
+[SCRUM-13](https://stevenkeith85.atlassian.net/browse/SCRUM-13) owns `AGENTS.md`. When that file lands, it should link to this index and to the ADRs in the table above, and it should not copy their rules. This index does not add that line.

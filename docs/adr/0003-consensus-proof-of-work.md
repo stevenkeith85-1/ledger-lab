@@ -121,15 +121,15 @@ Only a valid block contributes work. A header whose `difficulty_bits` differs fr
 
 Sprint 1 has one node and one miner, so a competing chain does not arise in ordinary operation. The design must still support a reorg. A heavier valid chain replaces the tip, including in tests and including when a node loads an alternative chain.
 
-[SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) stores undo data for every applied block. The record restores spent outputs and removes created outputs.
+[SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20) stores undo data for every applied block. The record restores spent outputs and removes created outputs.
 
-Adopting a chain that diverges from the current tip is one Postgres transaction:
+Adopting a chain that diverges from the current tip is one Postgres transaction, implemented in [SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20):
 
 1. Walk from the current tip back to the common ancestor. For each block, apply its undo: restore the spent outputs, remove the created outputs.
 2. Apply the candidate blocks from the child of that ancestor through the new tip, and store undo data for each new block.
 3. Commit. If any step fails, the database transaction rolls back and the previous tip stays canonical.
 
-A candidate that only extends the current tip has an empty undo walk. The node applies the new block or blocks in one Postgres transaction.
+A candidate that only extends the current tip has an empty undo walk. The node applies the new block or blocks in one Postgres transaction ([SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20)).
 
 ### Block production and validation
 
@@ -161,7 +161,7 @@ flowchart TD
 ## Consequences
 
 - **Header layout.** The header amendment is in scope for this decision and lands on [PR #1](https://github.com/stevenkeith85-1/ledger-lab/pull/1), with ADR 0001 and [docs/adr/vectors/](vectors/). It is part of that change, already on the branch this ADR stacks on. It is not a follow-up. This ADR does not edit ADR 0001 or the vectors. The 128-byte header, the target inequality, and the test-chain difficulty of `16` are taken from ADR 0001.
-- **Blocks.** [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) implements the mining loop, the genesis difficulty check, persistence of `difficulty_bits` and `nonce`, fork choice, per-block undo data, and the reorg transaction.
+- **Blocks.** [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) implements the mining loop, the genesis difficulty check, and fork choice. [SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20) implements persistence of `difficulty_bits` and `nonce`, per-block undo data, and the reorg transaction.
 - **Transactions.** [SCRUM-15](https://stevenkeith85.atlassian.net/browse/SCRUM-15) is unchanged. Bodies, ids, signatures, and amount limits stay on ADR 0001 and ADR 0002.
 - **Finality.** Proof of work is probabilistic. The tip stays canonical until a valid chain with greater cumulative work replaces it. The sprint 1 demo has one miner, so the tip the node just produced stays in place in practice. The rule still treats the tip as replaceable.
 - **One node.** The sprint 1 process is a single point of failure. That limit is accepted for the demo. Reorg support keeps the UTXO set on the canonical chain. It does not add a second node.

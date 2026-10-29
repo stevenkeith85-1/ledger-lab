@@ -25,6 +25,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -36,6 +37,12 @@ MAX_AMOUNT = 2**53 - 1
 VERSION = 1
 INPUT_COUNT_MAX = 1000
 OUTPUT_COUNT_MAX = 1000
+# Test-chain genesis difficulty. Legal range is 0..255. The search below
+# is deterministic: each vector uses the smallest nonce from 0 that matches
+# its leading-zero condition.
+DIFFICULTY_BITS = 16
+HEADER_PREFIX_LEN = 120
+HEADER_LEN = 128
 
 # 32-byte seeds. Key A is 0x00..0x1f. Key B is 0x20..0x3f.
 SEEDS: dict[str, bytes] = {
@@ -127,6 +134,23 @@ def encode_tx_body(
     return b"".join(parts)
 
 
+def pow_target(difficulty_bits: int) -> int:
+    """Exclusive upper bound on the block hash as a big-endian integer."""
+    bits = require_int("difficulty_bits", difficulty_bits)
+    if not 0 <= bits <= 255:
+        raise ValueError("difficulty_bits outside 0..255")
+    return 1 << (256 - bits)
+
+
+def leading_zero_bits(digest: bytes) -> int:
+    if len(digest) != 32:
+        raise ValueError("digest must be 32 bytes")
+    value = int.from_bytes(digest, "big")
+    if value == 0:
+        return 256
+    return 256 - value.bit_length()
+
+
 def encode_block_header(
     version: int,
     height: int,
@@ -134,8 +158,14 @@ def encode_block_header(
     tx_root: bytes,
     timestamp_ms: int,
     proposer_public_key: bytes,
+    difficulty_bits: int,
+    nonce: int,
 ) -> bytes:
-    return b"".join(
+    """128-byte header. The nonce is part of the header that is hashed and signed."""
+    bits = require_int("difficulty_bits", difficulty_bits)
+    if not 0 <= bits <= 255:
+        raise ValueError("difficulty_bits outside 0..255")
+    header = b"".join(
         [
             u32(version),
             u64(height),
@@ -143,8 +173,50 @@ def encode_block_header(
             raw32("tx_root", tx_root),
             u64(timestamp_ms),
             raw32("proposer_public_key", proposer_public_key),
+            u32(bits),
+            u64(nonce),
         ]
     )
+    if len(header) != HEADER_LEN:
+        raise RuntimeError(f"header length {len(header)}")
+    return header
+
+
+def mine_nonces(prefix: bytes, difficulty_bits: int) -> dict[str, tuple[int, bytes, bytes, int]]:
+    """Find three nonces, each the smallest from 0 for its condition.
+
+    ``valid`` meets the target (hash < 2**(256 - difficulty_bits)).
+    ``exact`` has exactly ``difficulty_bits`` leading zero bits, which passes.
+    ``below`` has exactly ``difficulty_bits - 1`` leading zero bits, which fails.
+    """
+    if len(prefix) != HEADER_PREFIX_LEN:
+        raise ValueError("header prefix must be 120 bytes")
+    target = pow_target(difficulty_bits)
+    found: dict[str, tuple[int, bytes, bytes, int]] = {}
+    nonce = 0
+    while len(found) < 3:
+        header = prefix + u64(nonce)
+        digest = sha256(BLOCK_TAG + header)
+        value = int.from_bytes(digest, "big")
+        zeros = 256 if value == 0 else 256 - value.bit_length()
+        if "valid" not in found and value < target:
+            found["valid"] = (nonce, header, digest, zeros)
+        if "exact" not in found and zeros == difficulty_bits:
+            found["exact"] = (nonce, header, digest, zeros)
+        if "below" not in found and zeros == difficulty_bits - 1:
+            found["below"] = (nonce, header, digest, zeros)
+        nonce += 1
+        if nonce > 5_000_000:
+            raise RuntimeError("proof-of-work search exceeded 5000000 nonces")
+    exact_nonce = found["exact"][0]
+    valid_nonce = found["valid"][0]
+    if exact_nonce < valid_nonce:
+        raise RuntimeError("exact leading-zero nonce was below the first valid nonce")
+    if not int.from_bytes(found["exact"][2], "big") < target:
+        raise RuntimeError("exact leading-zero hash missed the target")
+    if int.from_bytes(found["below"][2], "big") < target:
+        raise RuntimeError("below-target boundary hash met the target")
+    return found
 
 
 def make_tx(
@@ -202,11 +274,73 @@ def make_tx(
     }
 
 
-def make_block(
-    transactions: list[dict],
+def finish_block(
+    name: str,
+    description: str,
+    role: str,
+    nonce: int,
+    header: bytes,
+    digest: bytes,
+    zeros: int,
+    meets_target: bool,
+    shared: dict,
     keys: dict[str, tuple[Ed25519PrivateKey, bytes]],
 ) -> dict:
-    """Header over ``transactions`` in list order. Proposer is test key A."""
+    """Sign the finished header. Mining has already chosen ``nonce``."""
+    if header[-8:] != u64(nonce):
+        raise RuntimeError("header nonce bytes do not match the mined nonce")
+    preimage = BLOCK_TAG + header
+    if sha256(preimage) != digest:
+        raise RuntimeError("block hash does not match the mined digest")
+    proposer_id = shared["proposer_id"]
+    private, public = keys[proposer_id]
+    signature = private.sign(preimage)
+    if len(signature) != 64:
+        raise RuntimeError("proposer signature was not 64 bytes")
+    private.public_key().verify(signature, preimage)
+    tweaked = bytearray(header)
+    tweaked[-1] ^= 0x01
+    try:
+        private.public_key().verify(signature, BLOCK_TAG + bytes(tweaked))
+    except InvalidSignature:
+        pass
+    else:
+        raise RuntimeError("signature verified for a header with a different nonce")
+    return {
+        "block_hash_hex": digest.hex(),
+        "description": description,
+        "difficulty_bits": shared["difficulty_bits"],
+        "fields": {
+            "difficulty_bits": shared["difficulty_bits"],
+            "height": shared["height"],
+            "nonce": nonce,
+            "prev_block_hash_hex": shared["prev_block_hash"].hex(),
+            "proposer_public_key_hex": public.hex(),
+            "timestamp_ms": shared["timestamp_ms"],
+            "tx_root_hex": shared["tx_root"].hex(),
+            "version": VERSION,
+        },
+        "header_hex": header.hex(),
+        "leading_zero_bits": zeros,
+        "meets_pow_target": meets_target,
+        "name": name,
+        "preimage_hex": preimage.hex(),
+        "proposer_key": key_record(proposer_id, SEEDS[proposer_id], public),
+        "proposer_signature_hex": signature.hex(),
+        "role": role,
+        "tx_ids_hex": [tx_id.hex() for tx_id in shared["tx_ids"]],
+        "tx_names": shared["tx_names"],
+    }
+
+
+def make_blocks(
+    transactions: list[dict],
+    keys: dict[str, tuple[Ed25519PrivateKey, bytes]],
+) -> dict[str, dict]:
+    """Three headers over the same transactions. Only the nonce differs.
+
+    The proposer signs ``BLOCK_TAG || header`` after the nonce is chosen.
+    """
     tx_ids = [bytes.fromhex(tx["tx_id_hex"]) for tx in transactions]
     for tx_id in tx_ids:
         raw32("tx_id", tx_id)
@@ -216,43 +350,81 @@ def make_block(
     height = 42
     timestamp_ms = 1_735_689_600_000  # 2025-01-01T00:00:00.000Z
     prev_block_hash = bytes(32)
-    header = encode_block_header(
+    # Nonce is the last 8 bytes. Drop that placeholder so the search can append
+    # each candidate without rebuilding the rest of the header.
+    prefix = encode_block_header(
         VERSION,
         height,
         prev_block_hash,
         tx_root,
         timestamp_ms,
         proposer_public,
-    )
-    preimage = BLOCK_TAG + header
-    block_hash = sha256(preimage)
-    signature = keys[proposer_id][0].sign(preimage)
-    if len(signature) != 64:
-        raise RuntimeError("proposer signature was not 64 bytes")
-    keys[proposer_id][0].public_key().verify(signature, preimage)
-    return {
-        "block_hash_hex": block_hash.hex(),
-        "description": (
-            "Header fixture. tx_root commits to the transaction ids in "
-            "tx_names order. The all-zero prev_block_hash pins the genesis "
-            "previous-hash bytes. Height 42 keeps the u64 endianness visible. "
-            "This fixture is not a consensus-valid block: coinbase rules are "
-            "SCRUM-16 and proof-of-authority policy is SCRUM-19."
-        ),
-        "fields": {
-            "height": height,
-            "prev_block_hash_hex": prev_block_hash.hex(),
-            "proposer_public_key_hex": proposer_public.hex(),
-            "timestamp_ms": timestamp_ms,
-            "tx_root_hex": tx_root.hex(),
-            "version": VERSION,
-        },
-        "header_hex": header.hex(),
-        "preimage_hex": preimage.hex(),
-        "proposer_key": key_record(proposer_id, SEEDS[proposer_id], proposer_public),
-        "proposer_signature_hex": signature.hex(),
-        "tx_ids_hex": [tx_id.hex() for tx_id in tx_ids],
+        DIFFICULTY_BITS,
+        0,
+    )[:HEADER_PREFIX_LEN]
+    mined = mine_nonces(prefix, DIFFICULTY_BITS)
+    shared = {
+        "difficulty_bits": DIFFICULTY_BITS,
+        "height": height,
+        "prev_block_hash": prev_block_hash,
+        "proposer_id": proposer_id,
+        "timestamp_ms": timestamp_ms,
+        "tx_ids": tx_ids,
         "tx_names": [tx["name"] for tx in transactions],
+        "tx_root": tx_root,
+    }
+    valid_nonce, valid_header, valid_digest, valid_zeros = mined["valid"]
+    exact_nonce, exact_header, exact_digest, exact_zeros = mined["exact"]
+    below_nonce, below_header, below_digest, below_zeros = mined["below"]
+    common = (
+        "Same transaction ids, height 42, timestamp_ms 1735689600000, "
+        "all-zero prev_block_hash, proposer test key A, difficulty_bits 16. "
+        "The signature is over BLOCK_TAG || header after that nonce is final, "
+        "and it is not part of the hash. Coinbase rules remain SCRUM-16, so "
+        "this is a header fixture, not a consensus-valid chain block."
+    )
+    return {
+        "block": finish_block(
+            "block",
+            "Smallest nonce from 0 whose block hash, as a big-endian integer, "
+            "is strictly less than 2**(256 - 16). " + common,
+            "minimal_valid_nonce",
+            valid_nonce,
+            valid_header,
+            valid_digest,
+            valid_zeros,
+            True,
+            shared,
+            keys,
+        ),
+        "block_boundary_pass": finish_block(
+            "block_boundary_pass",
+            "Smallest nonce from 0 whose block hash has exactly 16 leading "
+            "zero bits. That hash passes the target check. " + common,
+            "exact_leading_zero_bits_pass",
+            exact_nonce,
+            exact_header,
+            exact_digest,
+            exact_zeros,
+            True,
+            shared,
+            keys,
+        ),
+        "block_boundary_fail": finish_block(
+            "block_boundary_fail",
+            "Smallest nonce from 0 whose block hash has exactly 15 leading "
+            "zero bits. That hash fails the target check. The proposer "
+            "signature is valid for this header; the failure is the work. "
+            + common,
+            "fewer_leading_zero_bits_fail",
+            below_nonce,
+            below_header,
+            below_digest,
+            below_zeros,
+            False,
+            shared,
+            keys,
+        ),
     }
 
 
@@ -299,8 +471,11 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
         key_record(key_id, SEEDS[key_id], public_only[key_id])
         for key_id in ("A", "B")
     ]
+    blocks = make_blocks(transactions, keys)
     return {
-        "block": make_block(transactions, keys),
+        "block": blocks["block"],
+        "block_boundary_fail": blocks["block_boundary_fail"],
+        "block_boundary_pass": blocks["block_boundary_pass"],
         "constants": {
             "block_header_field_order": [
                 "version",
@@ -309,8 +484,18 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
                 "tx_root",
                 "timestamp_ms",
                 "proposer_public_key",
+                "difficulty_bits",
+                "nonce",
             ],
             "block_preimage": "BLOCK_TAG || header",
+            "difficulty_bits_max": 255,
+            "difficulty_bits_min": 0,
+            "header_width_bytes": HEADER_LEN,
+            "pow_target_rule": (
+                "uint256be(block_hash) < 2**(256 - difficulty_bits)"
+            ),
+            "proposer_signs": "BLOCK_TAG || header after the nonce is final",
+            "test_chain_difficulty_bits": DIFFICULTY_BITS,
             "block_tag_ascii": "LedgerLab/block/v1",
             "block_tag_hex": BLOCK_TAG.hex(),
             "endianness": "unsigned-big-endian",
@@ -345,8 +530,11 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
             "two transaction preimages; both are TX_TAG || tx_body, signatures "
             "excluded. signatures_hex[i] was produced by signing_keys[i] over that "
             "preimage and aligns with fields.inputs[i]. signer identity is not a "
-            "serialised field. The block preimage is BLOCK_TAG || header; the "
-            "proposer signature is excluded from the block hash. tx_root hashes "
+            "serialised field. The block preimage is BLOCK_TAG || header, and "
+            "that header includes difficulty_bits and the final nonce. The "
+            "proposer signs that preimage after mining. The signature is "
+            "excluded from the block hash. A test chain fixes difficulty_bits "
+            "in its genesis; these block vectors use 16. tx_root hashes "
             "raw transaction-id bytes, not their hex text. Amounts in this file "
             "are JSON integers because every fixture value is inside the safe "
             "range; the node JSON API still sends decimal strings (ADR 0002)."
@@ -380,7 +568,15 @@ def main() -> None:
     print(f"wrote {OUTPUT_PATH}")
     for tx in payload["transactions"]:
         print(f"{tx['name']} {tx['tx_id_hex']}")
-    print(f"block {payload['block']['block_hash_hex']}")
+    for key in ("block", "block_boundary_pass", "block_boundary_fail"):
+        block = payload[key]
+        print(
+            f"{key} hash={block['block_hash_hex']} "
+            f"nonce={block['fields']['nonce']} "
+            f"difficulty_bits={block['fields']['difficulty_bits']} "
+            f"leading_zero_bits={block['leading_zero_bits']} "
+            f"meets_pow_target={block['meets_pow_target']}"
+        )
 
 
 if __name__ == "__main__":

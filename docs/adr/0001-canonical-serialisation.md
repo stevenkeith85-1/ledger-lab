@@ -8,6 +8,10 @@
 
 Accepted.
 
+## Amendment
+
+Before acceptance, the block header was extended for proof of work. `difficulty_bits` (`u32`) and `nonce` (`u64`) were appended, in that order, after `proposer_public_key`. Version stays `1` and `BLOCK_TAG` stays `LedgerLab/block/v1`, because this layout had not shipped. The block hash is still `SHA-256(BLOCK_TAG || header)` over the full 128-byte header. The proposer signature stays outside that header.
+
 ## Context
 
 LedgerLab is a single-node UTXO chain. A transaction id is the hash of a transaction. A block hash is the hash of a header. Ed25519 signatures cover those same messages. Python on the node, SQL in Postgres, a future React or Angular client, and the CI vectors all have to produce those bytes without consulting each other.
@@ -120,7 +124,7 @@ When a complete transaction is one byte string, the envelope is the body followe
 
 ### Block header
 
-The header is 116 bytes, in this order:
+The header is 128 bytes, in this order:
 
 | Offset | Field | Width | Rule |
 | --- | --- | --- | --- |
@@ -130,25 +134,33 @@ The header is 116 bytes, in this order:
 | 44 | `tx_root` | 32 raw bytes | Defined below. |
 | 76 | `timestamp_ms` | `u64` | Unix time in milliseconds, UTC. |
 | 84 | `proposer_public_key` | 32 raw bytes | Ed25519 public key of the proposer. |
+| 116 | `difficulty_bits` | `u32` | Unsigned big-endian. Legal values are `0` through `255` inclusive. |
+| 120 | `nonce` | `u64` | Unsigned big-endian. Mining writes the final value here, before the header is hashed or signed. |
 
 `tx_root = SHA-256(tx_id_0 || tx_id_1 || ... || tx_id_n-1)`, the concatenation of the raw 32-byte transaction ids in block order. The hash input is those raw digests, not their hex encoding. Zero transactions produce `SHA-256` of the empty string. Whether a block with zero transactions is valid is a consensus question for SCRUM-16; the hash of the empty concatenation is the encoding either way.
 
 This is a single hash of the concatenated ids, not a Merkle tree. A Merkle tree is the upgrade path when a light client needs inclusion proofs. It is not the commitment today.
 
+`difficulty_bits` is a chain-level consensus parameter fixed in the genesis block. A node rejects any block whose `difficulty_bits` is not that genesis value. A test chain uses its own genesis and may set a low difficulty. The vectors use `16` as that test-chain genesis value.
+
+The proof-of-work predicate is part of this encoding so every implementation compares the same integers. Read `block_hash` as a big-endian unsigned 256-bit integer `H`. The header meets the target only when `H < 2**(256 - difficulty_bits)`. [ADR 0003](0003-consensus-proof-of-work.md) holds the consensus rationale for proof of work. It does not replace this comparison.
+
+The inequality is the rule. It accepts every hash with at least `difficulty_bits` leading zero bits, and no hash with fewer. In particular, a hash with exactly `difficulty_bits` leading zero bits passes, because then `2**(256 - difficulty_bits - 1) <= H < 2**(256 - difficulty_bits)`. When `difficulty_bits` is at least 1, a hash with exactly one fewer leading zero bit fails, because then `H >= 2**(256 - difficulty_bits)`. A hash with more than `difficulty_bits` leading zero bits also passes. `difficulty_bits` of `256` or more is not a legal field value, so there is no target of `2**0` from an out-of-range difficulty.
+
 ### Block preimage
 
-The block has one preimage, used twice:
+The block has one preimage. The hash and the proposer signature both use it, and the signature is made only after mining.
 
 | Role | Bytes |
 | --- | --- |
-| Block-hash preimage | `BLOCK_TAG` concatenated with the header |
-| Proposer signing preimage | `BLOCK_TAG` concatenated with the header |
+| Block-hash preimage | `BLOCK_TAG` concatenated with the 128-byte header |
+| Proposer signing preimage | those same bytes, including the final nonce |
 
 `block_hash = SHA-256(BLOCK_TAG || header)`.
 
-The proposer's Ed25519 signature over that preimage is 64 bytes, carried with the block, and is not an input to the block hash. Who may propose, and the round-robin schedule, are [SCRUM-19](https://stevenkeith85.atlassian.net/browse/SCRUM-19). This ADR only fixes the signed bytes and the hash.
+The proposer signs the header bytes, not the digest. The signed message is `BLOCK_TAG` concatenated with the 128-byte header, and that header already contains `difficulty_bits` and the nonce mining selected. The signature is not `SHA-256(BLOCK_TAG || header)`; that 32-byte value is the block hash. Mining finishes first. A signature over any earlier nonce does not verify for the finished header. The signature is 64 raw Ed25519 bytes carried beside the header. It stays outside the hashed header, so it is not an input to `block_hash`.
 
-A signed header as one byte string is the 116-byte header followed by the 64-byte proposer signature. Trailing bytes are rejected. The full transaction list is not appended to that string. The header commits to the ordered ids through `tx_root`, and each id commits to its body. Nodes still verify every transaction signature; the block hash is not a substitute for that check.
+A signed header as one byte string is the 128-byte header followed by the 64-byte proposer signature (192 bytes). A shorter string is truncated. Trailing bytes are rejected. The full transaction list is not appended to that string. The header commits to the ordered ids through `tx_root`, and each id commits to its body. Nodes still verify every transaction signature; the block hash is not a substitute for that check.
 
 ### How the id and the signature are derived
 
@@ -171,14 +183,14 @@ The signature and the transaction id are siblings. The signature is not hashed i
 flowchart TD
   txIds["raw tx ids in block order"]
   txRoot["tx_root = SHA-256 of concatenated ids"]
-  header["116-byte header"]
+  mined["128-byte header with difficulty_bits and final nonce"]
   blockTag["BLOCK_TAG"]
   blockPre["preimage = BLOCK_TAG then header"]
   blockHash["block_hash = SHA-256 of preimage"]
-  blockSig["proposer Ed25519 signature over preimage"]
+  blockSig["proposer signature over that preimage, after mining"]
   txIds --> txRoot
-  txRoot --> header
-  header --> blockPre
+  txRoot --> mined
+  mined --> blockPre
   blockTag --> blockPre
   blockPre --> blockHash
   blockPre --> blockSig
@@ -188,9 +200,12 @@ flowchart TD
 
 A decoder accepts a byte string only when it is exactly the encoding this ADR defines.
 
-- Reject a truncated string: not enough bytes for the counts and the fixed widths.
-- Reject trailing bytes after the body, after the transaction envelope, after the header, or after the signed header, whichever string is being decoded.
+- Reject a truncated string: not enough bytes for the counts and the fixed widths. A block header shorter than 128 bytes is truncated. A 116-byte header is not valid version 1.
+- Reject trailing bytes after the body, after the transaction envelope, after the 128-byte header, or after the signed header (the header plus the 64-byte proposer signature), whichever string is being decoded.
 - Reject `version` other than `1`.
+- Reject `difficulty_bits` outside `0..=255`. The field is a `u32`, so `256` and any larger integer fit in the field and are still rejected.
+- Reject a block whose `difficulty_bits` differs from the genesis block of that chain. Test chains set the value in their own genesis.
+- Reject a decoded header whose block hash, as a big-endian unsigned 256-bit integer, is not strictly less than `2**(256 - difficulty_bits)`. The header can be the right width and still fail this check.
 - Reject `input_count` outside `0..=1000`, and `output_count` outside `1..=1000`, before allocating or reading that many items.
 - Reject anything that is not the single fixed-width form: no compact-size integers, no DER or PEM wrapping of keys or signatures, no hex inside the hashed bytes.
 - `encode(decode(b)) == b` for a transaction body, a transaction envelope, a block header, and a signed header.
@@ -199,11 +214,11 @@ Amount range and sums are ADR 0002. A structural decode may return a `u64` that 
 
 ### Versioning
 
-The version field is inside the hashed and signed body and header, so a body with a different version is a different id and a different signature. The tag sits outside the body and separates this protocol from another message that might share a prefix. A new layout bumps both: `version` becomes `2` and the tag becomes a new string (for example `LedgerLab/tx/v2` plus `0x00`). Shipping a new version under the old tag, or the old version under a new tag, is not a supported migration. Decoders written for v1 reject every other version.
+The version field is inside the hashed and signed body and header, so a body with a different version is a different id and a different signature. The tag sits outside the body and separates this protocol from another message that might share a prefix. A new layout bumps both: `version` becomes `2` and the tag becomes a new string (for example `LedgerLab/tx/v2` plus `0x00`). Shipping a new version under the old tag, or the old version under a new tag, is not a supported migration. Decoders written for v1 reject every other version. The proof-of-work fields are already part of version 1; they were added before this ADR was accepted, so they are not a version bump.
 
 ## Consequences
 
-- **Determinism.** One logical body has one byte string. RFC 8032 signing adds no nonce, so the signature in the vectors is a fixed value a second implementation must reproduce.
+- **Determinism.** One logical body has one byte string. RFC 8032 signing adds no signature nonce, so an Ed25519 signature in the vectors is a fixed value a second implementation must reproduce. The block `nonce` is the proof-of-work field, not a signature nonce.
 - **Auditability.** Anyone with the body can recompute the transaction id, and anyone with the header can recompute the block hash, without holding a private key and without trusting the node that stored the row.
 - **Cross-language reproducibility.** Fixed widths, unsigned big-endian, raw keys, and SHA-256 are the whole codec. No locale, no map sort, no JSON number parser on the hashed path.
 - **Versioning.** The version field and the domain tag are the only extension mechanism. Old signatures do not verify under a new tag.
@@ -211,7 +226,7 @@ The version field is inside the hashed and signed body and header, so a body wit
 - **Sighash.** Every input signs the entire body. A signer cannot authorise one output and leave the rest open. Adding a sighash mode is a new version and a new tag.
 - **Allocation.** The count limits are part of decoding. A million-input message fails the `u32` bound check instead of allocating.
 - **Commitment shape.** `tx_root` is a hash of concatenated ids. Light-client inclusion proofs need a Merkle tree later. Until that ADR, clients that want inclusion rehash the full id list.
-- **What the block hash does not cover.** It covers the header. Transaction signatures and the proposer signature are checked as signatures, not by comparing the block hash. Storage that rewrites a signature still has to pass verification on read.
+- **What the block hash covers.** It covers the 128-byte header, including `difficulty_bits` and `nonce`, and nothing after it. Transaction signatures and the proposer signature are checked as signatures. The proposer signature is computed from the finished preimage, so it commits to the mined nonce without changing the hash. Storage that rewrites a signature still has to pass verification on read.
 
 ### Test vectors
 
@@ -225,11 +240,13 @@ The file is the oracle for SCRUM-15 and for the SCRUM-17 CI test. It contains:
 | `normal` | Two inputs and two outputs. Key A signs input 0, key B signs input 1. The second `output_index` is `65539` (`00 01 00 03`) and the second amount is `4294967297` (`00 00 00 01 00 00 00 01`). |
 | `min_amount` | One output of amount `1`, the eight bytes `00 00 00 00 00 00 00 01`. |
 | `max_amount` | One output of amount `9007199254740991`, the eight bytes `00 1f ff ff ff ff ff ff`. |
-| `block` | The 116-byte header over those four ids, in that order. Height `42`, `timestamp_ms` `1735689600000` (`2025-01-01T00:00:00.000Z`), `prev_block_hash` thirty-two `0x00` bytes, proposer test key A. |
+| `block` | The 128-byte header over those four ids. Height `42`, `timestamp_ms` `1735689600000` (`2025-01-01T00:00:00.000Z`), `prev_block_hash` thirty-two `0x00` bytes, proposer test key A, `difficulty_bits` `16`. Nonce `10858` is the smallest from 0 whose hash is under the target (17 leading zero bits). Hash `0000539d75b3017735c36483890674eb12ea7806008313f8b9c06f5eb5bb566a`. |
+| `block_boundary_pass` | Same header fields, nonce `27337`. The hash has exactly 16 leading zero bits and passes. Hash `00008db647673b378125096adf951c047d07de4d7f7f5766639d2c848cf2c12e`. |
+| `block_boundary_fail` | Same header fields, nonce `17789`. The hash has exactly 15 leading zero bits and fails the target. The proposer signature on this header is still valid. Hash `00015a66a4bab45ba3842bd27152aa9c54a20026ffe07cd5f367515d0427578b`. |
 
 On each transaction, `fields` holds the logical values (`prev_tx_id` and public keys as lowercase hex, counts and amounts as JSON integers). `body_hex` is the body. `signing_preimage_hex` and `tx_id_preimage_hex` are both `TX_TAG || tx_body`; they are equal, and the names exist so a test can tell the two roles apart. `tx_id_hex` is SHA-256 of that preimage. `signatures_hex[i]` matches `signing_keys[i]` and `fields.inputs[i]`. Seeds and public keys are hex, next to the warning `TEST ONLY - never use these keys for real value`, on the top-level `keys` array and on every signing key. Test key A has seed `00 01 … 1f`. Test key B has seed `20 21 … 3f`.
 
-On the block, `fields` is the header, `header_hex` its bytes, `preimage_hex` the block-hash preimage and the proposer signing preimage, `block_hash_hex` the hash, and `proposer_signature_hex` the Ed25519 signature. `tx_ids_hex` is the raw ids that were concatenated, in order.
+On each block vector, `fields` is the header, including `difficulty_bits` and `nonce`. `header_hex` is those 128 bytes. `preimage_hex` is `BLOCK_TAG || header` with that final nonce. `block_hash_hex` is SHA-256 of the preimage. `proposer_signature_hex` is the Ed25519 signature of that same preimage, produced after the nonce was chosen, and it does not verify over the bare hash or over a header with a different nonce. `leading_zero_bits` and `meets_pow_target` record the boundary check. `tx_ids_hex` is the raw ids that were concatenated, in order.
 
 `constants` in the same file repeats the tag hex, the field order, the widths' names, the count limits, and both preimage formulas so a test can load them without parsing this document. If `constants` and this ADR ever disagree, this ADR wins and the generator is fixed.
 
@@ -239,5 +256,5 @@ The previous-transaction ids inside the vectors are synthetic 32-byte patterns. 
 
 - **Coinbase.** `input_count = 0` is a legal encoding: no input records, then the outputs, and an empty signature list. The only consensus use is a coinbase. Eligibility, the reward, maturity, and any extra coinbase field belong to [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16). SCRUM-16 should adopt this zero-input layout. Extra coinbase bytes require a new transaction version and a new `TX_TAG`.
 - **Empty blocks.** The `tx_root` of no transactions is SHA-256 of zero bytes. SCRUM-16 decides whether such a block is valid.
-- **Proof of authority.** The proposer signature's preimage is fixed here. The validator set and the round-robin schedule are [SCRUM-19](https://stevenkeith85.atlassian.net/browse/SCRUM-19).
+- **Proof of work rationale.** The target comparison, the `0..=255` range, and the rule that `difficulty_bits` is fixed in genesis are stated above. Why the chain uses proof of work is [ADR 0003](0003-consensus-proof-of-work.md). Coinbase reward and eligibility stay with [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16).
 - **`AGENTS.md`.** [SCRUM-13](https://stevenkeith85.atlassian.net/browse/SCRUM-13) is adding `AGENTS.md`. That guide will link to this ADR and will not copy the layout. This change does not edit `AGENTS.md`.

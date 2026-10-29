@@ -1,24 +1,111 @@
 {
   "block": {
-    "block_hash_hex": "74997fc02ad9d0552cc51715d20c1d025602e0e12846b8c09184f2c425c51533",
-    "description": "Header fixture. tx_root commits to the transaction ids in tx_names order. The all-zero prev_block_hash pins the genesis previous-hash bytes. Height 42 keeps the u64 endianness visible. This fixture is not a consensus-valid block: coinbase rules are SCRUM-16 and proof-of-authority policy is SCRUM-19.",
+    "block_hash_hex": "0000539d75b3017735c36483890674eb12ea7806008313f8b9c06f5eb5bb566a",
+    "description": "Smallest nonce from 0 whose block hash, as a big-endian integer, is strictly less than 2**(256 - 16). Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. Coinbase rules remain SCRUM-16, so this is a header fixture, not a consensus-valid chain block.",
+    "difficulty_bits": 16,
     "fields": {
+      "difficulty_bits": 16,
       "height": 42,
+      "nonce": 10858,
       "prev_block_hash_hex": "0000000000000000000000000000000000000000000000000000000000000000",
       "proposer_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "timestamp_ms": 1735689600000,
       "tx_root_hex": "7c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f",
       "version": 1
     },
-    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
-    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000002a6a",
+    "leading_zero_bits": 17,
+    "meets_pow_target": true,
+    "name": "block",
+    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000002a6a",
     "proposer_key": {
       "key_id": "A",
       "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "warning": "TEST ONLY - never use these keys for real value"
     },
-    "proposer_signature_hex": "88e31662bddb0887a65306234a100f869fe21fd6f291687c92b115a967fb9f8d682795287f30503fac48234e50f698bf79272cfa8c644c04120ff41cfbe65209",
+    "proposer_signature_hex": "318b3c65f8115b45c71f4ba9dda29a452725c610cc0a33ae3585e9f9e042e90df217a68af83bfbb469bdd01f9ede38bcf25550f6eb90b1768d48c7845e637705",
+    "role": "minimal_valid_nonce",
+    "tx_ids_hex": [
+      "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
+      "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
+      "1bb560646ac63df76912f34cd868010bf229a251b125f1b6265a9a3b27c3f04f",
+      "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07"
+    ],
+    "tx_names": [
+      "sample",
+      "normal",
+      "min_amount",
+      "max_amount"
+    ]
+  },
+  "block_boundary_fail": {
+    "block_hash_hex": "00015a66a4bab45ba3842bd27152aa9c54a20026ffe07cd5f367515d0427578b",
+    "description": "Smallest nonce from 0 whose block hash has exactly 15 leading zero bits. That hash fails the target check. The proposer signature is valid for this header; the failure is the work. Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. Coinbase rules remain SCRUM-16, so this is a header fixture, not a consensus-valid chain block.",
+    "difficulty_bits": 16,
+    "fields": {
+      "difficulty_bits": 16,
+      "height": 42,
+      "nonce": 17789,
+      "prev_block_hash_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "proposer_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "timestamp_ms": 1735689600000,
+      "tx_root_hex": "7c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f",
+      "version": 1
+    },
+    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b800000010000000000000457d",
+    "leading_zero_bits": 15,
+    "meets_pow_target": false,
+    "name": "block_boundary_fail",
+    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b800000010000000000000457d",
+    "proposer_key": {
+      "key_id": "A",
+      "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "warning": "TEST ONLY - never use these keys for real value"
+    },
+    "proposer_signature_hex": "9df33dc309f819b99c6e8f1446c8a4f458dbb753d5bf25b49f04eae3a3f27659f5a0a983315f3d4524f88dc9e393565762557f04727e2169b5cbda7c2ad05e06",
+    "role": "fewer_leading_zero_bits_fail",
+    "tx_ids_hex": [
+      "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
+      "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
+      "1bb560646ac63df76912f34cd868010bf229a251b125f1b6265a9a3b27c3f04f",
+      "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07"
+    ],
+    "tx_names": [
+      "sample",
+      "normal",
+      "min_amount",
+      "max_amount"
+    ]
+  },
+  "block_boundary_pass": {
+    "block_hash_hex": "00008db647673b378125096adf951c047d07de4d7f7f5766639d2c848cf2c12e",
+    "description": "Smallest nonce from 0 whose block hash has exactly 16 leading zero bits. That hash passes the target check. Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. Coinbase rules remain SCRUM-16, so this is a header fixture, not a consensus-valid chain block.",
+    "difficulty_bits": 16,
+    "fields": {
+      "difficulty_bits": 16,
+      "height": 42,
+      "nonce": 27337,
+      "prev_block_hash_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "proposer_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "timestamp_ms": 1735689600000,
+      "tx_root_hex": "7c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f",
+      "version": 1
+    },
+    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000006ac9",
+    "leading_zero_bits": 16,
+    "meets_pow_target": true,
+    "name": "block_boundary_pass",
+    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000006ac9",
+    "proposer_key": {
+      "key_id": "A",
+      "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "warning": "TEST ONLY - never use these keys for real value"
+    },
+    "proposer_signature_hex": "38c16d6de1a885df55af52cbf773ddf9239083783ae1da91e597eff0548cb829260fb54a9f834d9fdfb55dcf829c96dc92e54474d3af1aa680c7c9c3b76de80d",
+    "role": "exact_leading_zero_bits_pass",
     "tx_ids_hex": [
       "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
       "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
@@ -39,13 +126,18 @@
       "prev_block_hash",
       "tx_root",
       "timestamp_ms",
-      "proposer_public_key"
+      "proposer_public_key",
+      "difficulty_bits",
+      "nonce"
     ],
     "block_preimage": "BLOCK_TAG || header",
     "block_tag_ascii": "LedgerLab/block/v1",
     "block_tag_hex": "4c65646765724c61622f626c6f636b2f763100",
+    "difficulty_bits_max": 255,
+    "difficulty_bits_min": 0,
     "endianness": "unsigned-big-endian",
     "hash": "SHA-256",
+    "header_width_bytes": 128,
     "input_count_max": 1000,
     "input_count_min": 0,
     "input_field_order": [
@@ -59,7 +151,10 @@
       "amount",
       "recipient_public_key"
     ],
+    "pow_target_rule": "uint256be(block_hash) < 2**(256 - difficulty_bits)",
+    "proposer_signs": "BLOCK_TAG || header after the nonce is final",
     "signature": "Ed25519-RFC8032",
+    "test_chain_difficulty_bits": 16,
     "tx_body_field_order": [
       "version",
       "input_count",
@@ -88,7 +183,7 @@
       "warning": "TEST ONLY - never use these keys for real value"
     }
   ],
-  "notes": "TEST ONLY keys. signing_preimage_hex and tx_id_preimage_hex name the two transaction preimages; both are TX_TAG || tx_body, signatures excluded. signatures_hex[i] was produced by signing_keys[i] over that preimage and aligns with fields.inputs[i]. signer identity is not a serialised field. The block preimage is BLOCK_TAG || header; the proposer signature is excluded from the block hash. tx_root hashes raw transaction-id bytes, not their hex text. Amounts in this file are JSON integers because every fixture value is inside the safe range; the node JSON API still sends decimal strings (ADR 0002).",
+  "notes": "TEST ONLY keys. signing_preimage_hex and tx_id_preimage_hex name the two transaction preimages; both are TX_TAG || tx_body, signatures excluded. signatures_hex[i] was produced by signing_keys[i] over that preimage and aligns with fields.inputs[i]. signer identity is not a serialised field. The block preimage is BLOCK_TAG || header, and that header includes difficulty_bits and the final nonce. The proposer signs that preimage after mining. The signature is excluded from the block hash. A test chain fixes difficulty_bits in its genesis; these block vectors use 16. tx_root hashes raw transaction-id bytes, not their hex text. Amounts in this file are JSON integers because every fixture value is inside the safe range; the node JSON API still sends decimal strings (ADR 0002).",
   "transactions": [
     {
       "body_hex": "00000001000000011111111111111111111111111111111111111111111111111111111111111111000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",

@@ -105,6 +105,7 @@ A block is valid only when all of the following hold:
 10. A non-coinbase input references an output confirmed in an earlier block. An output created by an earlier transaction in the same block is not spendable in that block.
 11. Each non-coinbase signature verifies under the `recipient_public_key` of the output that input spends.
 12. For each non-coinbase transaction, the sum of its input amounts is greater than or equal to the sum of its output amounts. The fee is that difference. It is not a field in the body. The sums are the integer sums from ADR 0002: each output amount is in `1..=MAX_AMOUNT`, and each of the input sum and the output sum is `<= MAX_AMOUNT`. The fee is therefore an integer in `0..=MAX_AMOUNT`. A fee of zero is valid. Coinbase outputs obey the same per-output and output-sum limits. The coinbase has no input amounts.
+13. The sum of the coinbase output amounts is at most the block reward plus the sum of the block's fees. Each fee is the non-coinbase input sum minus the output sum from item 12. The block reward's value is open, owned by [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16). This cap stays inside the ADR 0002 amount limits: the coinbase output sum still has to be `<= MAX_AMOUNT`.
 
 A block that fails any item is dropped. It is neither stored nor counted as work.
 
@@ -169,7 +170,7 @@ flowchart TD
 ## Consequences
 
 - **Header layout.** The header amendment is in scope for this decision and lands on [PR #1](https://github.com/stevenkeith85-1/ledger-lab/pull/1), with ADR 0001 and [docs/adr/vectors/](vectors/). It is part of that change, already on the branch this ADR stacks on. It is not a follow-up. This ADR does not edit ADR 0001 or the vectors. The 128-byte header, the target inequality, and the test-chain difficulty of `16` are taken from ADR 0001.
-- **Blocks.** [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) implements the mining loop, the genesis difficulty check, and fork choice. [SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20) implements persistence of `difficulty_bits` and `nonce`, per-block undo data, the reorg transaction, and the chain-tip row lock. [SCRUM-21](https://stevenkeith85.atlassian.net/browse/SCRUM-21) models block apply as a command with an inverse that consumes that undo data.
+- **Blocks.** [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) implements the mining loop, the genesis difficulty check, and fork choice. SCRUM-16 also chooses the block reward that validation item 13 uses. [SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20) implements persistence of `difficulty_bits` and `nonce`, per-block undo data, the reorg transaction, and the chain-tip row lock. [SCRUM-21](https://stevenkeith85.atlassian.net/browse/SCRUM-21) models block apply as a command with an inverse that consumes that undo data.
 - **Transactions.** [SCRUM-15](https://stevenkeith85.atlassian.net/browse/SCRUM-15) is unchanged. Bodies, ids, signatures, and amount limits stay on ADR 0001 and ADR 0002.
 - **Finality.** Proof of work is probabilistic. The tip stays canonical until a valid chain with greater cumulative work replaces it. The sprint 1 demo has one miner, so the tip the node just produced stays in place in practice. The rule still treats the tip as replaceable.
 - **One node.** The sprint 1 process is a single point of failure. That limit is accepted for the demo. Reorg support keeps the UTXO set on the canonical chain. It does not add a second node.
@@ -186,4 +187,5 @@ flowchart TD
 
 ### Open points
 
+- **Block reward.** The number is not set here. [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) owns it. Validation item 13 already requires the coinbase output sum to be at most that reward plus the block's fees, and that sum still has to satisfy ADR 0002.
 - **`AGENTS.md`.** [SCRUM-13](https://stevenkeith85.atlassian.net/browse/SCRUM-13) owns that file. It is not on this branch. When it lands, it should link to this ADR and should not copy these rules.

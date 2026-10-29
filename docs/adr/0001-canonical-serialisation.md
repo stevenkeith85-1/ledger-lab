@@ -268,6 +268,9 @@ The file is the oracle for SCRUM-15 and for the SCRUM-17 CI test. It contains:
 | `coinbase_height_2` | Same key and amount at height 2. Id `34f7b61c92bf43f5ef1c542a79409063241758ef38288d332dd83f615ebd83fb`. |
 | `coinbase_height_42` | Same key and amount at height 42, the coinbase inside the mined block. Id `c8b76f181fc8fac43deff12b0d9f2b221dbaa670d69612313d92644af4dfc061`. |
 | `spend_zero_prev_tx_id` | Invalid non-coinbase. One signed input whose `prev_tx_id` is thirty-two `0x00` bytes. A node rejects it. |
+| `amount_zero` | Invalid. One signed output of amount `0`. The signature verifies; the amount is below 1. See ADR 0002. |
+| `amount_over_max` | Invalid. One signed output of amount `9007199254740992` (`2**53`). It fits in a `u64` and is above `MAX_AMOUNT`. The signature verifies. See ADR 0002. |
+| `tampered_body` | Invalid. Signed as a normal one-input transaction, then the last body byte was XORed with `0x01`. `signatures_hex` does not verify over `signing_preimage_hex`. |
 | `block` | 128-byte header. First transaction is `coinbase_height_42`, then `sample`, `normal`, `min_amount`, `max_amount`. Height `42`, `timestamp_ms` `1735689600000` (`2025-01-01T00:00:00.000Z`), `prev_block_hash` thirty-two `0x00` bytes, proposer test key A, `difficulty_bits` `16`. Nonce `6617` is the smallest from 0 whose hash is under the target (18 leading zero bits). Hash `000038aa8c7b27aaf63b436cc6770e589f8c720f643499a3e2a7442da43f5dcc`. |
 | `block_boundary_pass` | Same header fields and transaction ids, nonce `10657`. The hash has exactly 16 leading zero bits and passes. Hash `0000cf60acd4bc42024a6e73320157418c96ce6e4bd97f1c5d6a0d4f04fe6d8e`. |
 | `block_boundary_fail` | Same header fields and transaction ids, nonce `39612`. The hash has exactly 15 leading zero bits and fails the target. The proposer signature on this header is still valid. Hash `0001b21d3de8604e314ee3b689b783c4cd87cc8d749d76f3fc2a96f6098b51a2`. |

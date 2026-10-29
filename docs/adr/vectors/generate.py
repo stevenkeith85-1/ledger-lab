@@ -114,8 +114,14 @@ def encode_tx_body(
     version: int,
     inputs: list[tuple[bytes, int]],
     outputs: list[tuple[int, bytes]],
+    enforce_amount_limits: bool = True,
 ) -> bytes:
-    """Unsigned transaction body. Signatures are not included."""
+    """Unsigned transaction body. Signatures are not included.
+
+    ``enforce_amount_limits`` stays on for every valid vector. The negative
+    amount vectors turn it off so a zero and a ``2**53`` can be encoded as
+    ``u64`` and then rejected by validation.
+    """
     if not 1 <= len(inputs) <= INPUT_COUNT_MAX:
         raise ValueError("input_count outside 1..=1000")
     if not 1 <= len(outputs) <= OUTPUT_COUNT_MAX:
@@ -129,12 +135,12 @@ def encode_tx_body(
     amounts: list[int] = []
     for amount, recipient in outputs:
         amount = require_int("amount", amount)
-        if not 1 <= amount <= MAX_AMOUNT:
+        if enforce_amount_limits and not 1 <= amount <= MAX_AMOUNT:
             raise ValueError(f"amount out of range: {amount}")
         amounts.append(amount)
         parts.append(u64(amount))
         parts.append(raw32("recipient_public_key", recipient))
-    if sum(amounts) > MAX_AMOUNT:
+    if enforce_amount_limits and sum(amounts) > MAX_AMOUNT:
         raise ValueError("output sum exceeds MAX_AMOUNT")
     return b"".join(parts)
 
@@ -230,10 +236,16 @@ def make_tx(
     inputs: list[tuple[bytes, int, str]],
     outputs: list[tuple[int, str]],
     keys: dict[str, tuple[Ed25519PrivateKey, bytes]],
+    enforce_amount_limits: bool = True,
 ) -> dict:
     encoded_inputs = [(prev, index) for prev, index, _signer in inputs]
     encoded_outputs = [(amount, keys[recipient][1]) for amount, recipient in outputs]
-    body = encode_tx_body(VERSION, encoded_inputs, encoded_outputs)
+    body = encode_tx_body(
+        VERSION,
+        encoded_inputs,
+        encoded_outputs,
+        enforce_amount_limits=enforce_amount_limits,
+    )
     preimage = TX_TAG + body
     tx_id = sha256(preimage)
 
@@ -559,7 +571,69 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
     )
     spend_zero["kind"] = "invalid_non_coinbase"
     spend_zero["reject_reason"] = "non_coinbase_zero_prev_tx_id"
+    amount_zero = make_tx(
+        "amount_zero",
+        "Invalid. The single output amount is 0, which is below the minimum "
+        "of 1. The signature verifies over this body; the rejection is the amount.",
+        inputs=[(bytes([0x41]) * 32, 0, "A")],
+        outputs=[(0, "B")],
+        keys=keys,
+        enforce_amount_limits=False,
+    )
+    amount_zero["kind"] = "invalid_amount"
+    amount_zero["reject_reason"] = "amount_below_minimum"
+    amount_over_max = make_tx(
+        "amount_over_max",
+        "Invalid. The single output amount is 2**53 (9007199254740992), one "
+        "above MAX_AMOUNT. It still fits in a u64. The signature verifies "
+        "over this body; the rejection is the amount.",
+        inputs=[(bytes([0x42]) * 32, 0, "A")],
+        outputs=[(2**53, "B")],
+        keys=keys,
+        enforce_amount_limits=False,
+    )
+    amount_over_max["kind"] = "invalid_amount"
+    amount_over_max["reject_reason"] = "amount_above_maximum"
+    tampered = make_tx(
+        "tampered_body",
+        "Invalid. A normal one-input transaction was signed, then the last "
+        "body byte was XORed with 0x01. signatures_hex is the signature over "
+        "the preimage from before that change, so it does not verify over "
+        "signing_preimage_hex.",
+        inputs=[(bytes([0x43]) * 32, 0, "A")],
+        outputs=[(1000, "B")],
+        keys=keys,
+    )
+    original_body = bytearray(bytes.fromhex(tampered["body_hex"]))
+    original_preimage = TX_TAG + bytes(original_body)
+    flipped = bytearray(original_body)
+    flipped[-1] ^= 0x01
+    tampered_body = bytes(flipped)
+    tampered_preimage = TX_TAG + tampered_body
+    tamper_sig = bytes.fromhex(tampered["signatures_hex"][0])
+    signer_public = keys["A"][0].public_key()
+    signer_public.verify(tamper_sig, original_preimage)
+    try:
+        signer_public.verify(tamper_sig, tampered_preimage)
+    except InvalidSignature:
+        pass
+    else:
+        raise RuntimeError("tampered body still verified")
+    recipient = bytearray(keys["B"][1])
+    if bytes(recipient) != bytes(original_body[-32:]):
+        raise RuntimeError("tamper target was not the recipient public key")
+    recipient[-1] ^= 0x01
+    if bytes(recipient) != tampered_body[-32:]:
+        raise RuntimeError("tampered recipient does not match the body")
+    tampered["body_hex"] = tampered_body.hex()
+    tampered["signing_preimage_hex"] = tampered_preimage.hex()
+    tampered["tx_id_preimage_hex"] = tampered_preimage.hex()
+    tampered["tx_id_hex"] = sha256(tampered_preimage).hex()
+    tampered["fields"]["outputs"][0]["recipient_public_key_hex"] = bytes(recipient).hex()
+    tampered["kind"] = "invalid_signature"
+    tampered["reject_reason"] = "body_tampered_after_signing"
     # The original four stay first so their bytes can be compared in place.
+    # Later invalid vectors are not inputs to any block, so block vectors stay put.
     transactions = [
         sample,
         normal,
@@ -569,6 +643,9 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
         coinbase_height_2,
         coinbase_height_42,
         spend_zero,
+        amount_zero,
+        amount_over_max,
+        tampered,
     ]
     block_txs = [coinbase_height_42, sample, normal, min_amount, max_amount]
     mismatch_txs = [coinbase_height_1, sample, normal, min_amount, max_amount]
@@ -660,8 +737,9 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
             "excluded from the block hash. A test chain fixes difficulty_bits "
             "in its genesis; these block vectors use 16. tx_root hashes "
             "raw transaction-id bytes, not their hex text. Amounts in this file "
-            "are JSON integers because every fixture value is inside the safe "
-            "range; the node JSON API still sends decimal strings (ADR 0002)."
+            "are JSON integers. Valid fixture amounts sit inside the safe integer "
+            "range. amount_zero and amount_over_max are rejected examples outside "
+            "that range. The node JSON API still sends decimal strings (ADR 0002)."
         ),
         "transactions": transactions,
         "warning": WARNING,

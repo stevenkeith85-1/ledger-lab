@@ -238,7 +238,7 @@
       "warning": "TEST ONLY - never use these keys for real value"
     }
   ],
-  "notes": "TEST ONLY keys. signing_preimage_hex and tx_id_preimage_hex name the two transaction preimages; both are TX_TAG || tx_body, signatures excluded. signatures_hex[i] was produced by signing_keys[i] over that preimage and aligns with fields.inputs[i], except a coinbase, which has signatures_hex empty. signer identity is not a serialised field. A coinbase is one input whose prev_tx_id is 32 zero bytes and whose output_index is the block height. It must be the first transaction, and a non-coinbase must not use that prev_tx_id. The block preimage is BLOCK_TAG || header, and that header includes difficulty_bits and the final nonce. The proposer signs that preimage after mining. The signature is excluded from the block hash. A test chain fixes difficulty_bits in its genesis; these block vectors use 16. tx_root hashes raw transaction-id bytes, not their hex text. Amounts in this file are JSON integers because every fixture value is inside the safe range; the node JSON API still sends decimal strings (ADR 0002).",
+  "notes": "TEST ONLY keys. signing_preimage_hex and tx_id_preimage_hex name the two transaction preimages; both are TX_TAG || tx_body, signatures excluded. signatures_hex[i] was produced by signing_keys[i] over that preimage and aligns with fields.inputs[i], except a coinbase, which has signatures_hex empty. signer identity is not a serialised field. A coinbase is one input whose prev_tx_id is 32 zero bytes and whose output_index is the block height. It must be the first transaction, and a non-coinbase must not use that prev_tx_id. The block preimage is BLOCK_TAG || header, and that header includes difficulty_bits and the final nonce. The proposer signs that preimage after mining. The signature is excluded from the block hash. A test chain fixes difficulty_bits in its genesis; these block vectors use 16. tx_root hashes raw transaction-id bytes, not their hex text. Amounts in this file are JSON integers. Valid fixture amounts sit inside the safe integer range. amount_zero and amount_over_max are rejected examples outside that range. The node JSON API still sends decimal strings (ADR 0002).",
   "transactions": [
     {
       "body_hex": "00000001000000011111111111111111111111111111111111111111111111111111111111111111000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
@@ -504,6 +504,114 @@
       "signing_preimage_hex": "4c65646765724c61622f74782f76310000000001000000010000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
       "tx_id_hex": "fc8dbae039c61f7f069637082810b4fae95e8d4c4011d852cd6dcae0baa2df32",
       "tx_id_preimage_hex": "4c65646765724c61622f74782f76310000000001000000010000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+    },
+    {
+      "body_hex": "000000010000000141414141414141414141414141414141414141414141414141414141414141410000000000000001000000000000000029acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "description": "Invalid. The single output amount is 0, which is below the minimum of 1. The signature verifies over this body; the rejection is the amount.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 0,
+            "prev_tx_id_hex": "4141414141414141414141414141414141414141414141414141414141414141"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 0,
+            "recipient_public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+          }
+        ],
+        "version": 1
+      },
+      "kind": "invalid_amount",
+      "name": "amount_zero",
+      "reject_reason": "amount_below_minimum",
+      "signatures_hex": [
+        "5e80a9c3ac848a1450bf0f1f01f345dbcb2142dc9e192daf70d5d29c5db43936d9dec16de0675d0441cf2b28a2d38921336c75e765268433ab950beb3fda5801"
+      ],
+      "signing_keys": [
+        {
+          "key_id": "A",
+          "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+          "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        }
+      ],
+      "signing_preimage_hex": "4c65646765724c61622f74782f763100000000010000000141414141414141414141414141414141414141414141414141414141414141410000000000000001000000000000000029acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "tx_id_hex": "02375b1220c8156f9e34dc3744a29a2e532b054b249109919a5c90fda9a13add",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f763100000000010000000141414141414141414141414141414141414141414141414141414141414141410000000000000001000000000000000029acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+    },
+    {
+      "body_hex": "000000010000000142424242424242424242424242424242424242424242424242424242424242420000000000000001002000000000000029acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "description": "Invalid. The single output amount is 2**53 (9007199254740992), one above MAX_AMOUNT. It still fits in a u64. The signature verifies over this body; the rejection is the amount.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 0,
+            "prev_tx_id_hex": "4242424242424242424242424242424242424242424242424242424242424242"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 9007199254740992,
+            "recipient_public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+          }
+        ],
+        "version": 1
+      },
+      "kind": "invalid_amount",
+      "name": "amount_over_max",
+      "reject_reason": "amount_above_maximum",
+      "signatures_hex": [
+        "c42348b96601b121af2b1f2ebf001b3198ff9c50f4cbfaecb49b00294d0dbc39f1c01efeff4c62f19b7012d0354430bbae1452b05f3b93acf1bba00a8afc740a"
+      ],
+      "signing_keys": [
+        {
+          "key_id": "A",
+          "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+          "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        }
+      ],
+      "signing_preimage_hex": "4c65646765724c61622f74782f763100000000010000000142424242424242424242424242424242424242424242424242424242424242420000000000000001002000000000000029acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "tx_id_hex": "848623f5019798f363c6883e651ed932467c5ffa4080521876d631515906fc15",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f763100000000010000000142424242424242424242424242424242424242424242424242424242424242420000000000000001002000000000000029acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+    },
+    {
+      "body_hex": "00000001000000014343434343434343434343434343434343434343434343434343434343434343000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd6",
+      "description": "Invalid. A normal one-input transaction was signed, then the last body byte was XORed with 0x01. signatures_hex is the signature over the preimage from before that change, so it does not verify over signing_preimage_hex.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 0,
+            "prev_tx_id_hex": "4343434343434343434343434343434343434343434343434343434343434343"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 1000,
+            "recipient_public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd6"
+          }
+        ],
+        "version": 1
+      },
+      "kind": "invalid_signature",
+      "name": "tampered_body",
+      "reject_reason": "body_tampered_after_signing",
+      "signatures_hex": [
+        "549ec70745f4f8ab7dd4b55646504f7c2b4746e47585afae92a2c68d00ccd8be15a384b7963689b78cb136236a15d779c9dd5c16a1eb64a460981d24171ad80f"
+      ],
+      "signing_keys": [
+        {
+          "key_id": "A",
+          "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+          "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        }
+      ],
+      "signing_preimage_hex": "4c65646765724c61622f74782f76310000000001000000014343434343434343434343434343434343434343434343434343434343434343000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd6",
+      "tx_id_hex": "a185091858173c9754bd1a2eb65efe2dd3d7873d1e0d83cb8ca50ed88c83e73b",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f76310000000001000000014343434343434343434343434343434343434343434343434343434343434343000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd6"
     }
   ],
   "warning": "TEST ONLY - never use these keys for real value"

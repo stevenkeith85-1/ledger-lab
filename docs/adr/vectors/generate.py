@@ -35,7 +35,12 @@ TX_TAG = b"LedgerLab/tx/v1\x00"
 BLOCK_TAG = b"LedgerLab/block/v1\x00"
 MAX_AMOUNT = 2**53 - 1
 VERSION = 1
+INPUT_COUNT_MIN = 1
 INPUT_COUNT_MAX = 1000
+# Fixture amount shared by the coinbase vectors. Not a protocol supply cap.
+COINBASE_AMOUNT = 50_000_000
+ZERO_TX_ID = bytes(32)
+BLOCK_HEIGHT = 42
 OUTPUT_COUNT_MAX = 1000
 # Test-chain genesis difficulty. Legal range is 0..255. The search below
 # is deterministic: each vector uses the smallest nonce from 0 that matches
@@ -111,8 +116,8 @@ def encode_tx_body(
     outputs: list[tuple[int, bytes]],
 ) -> bytes:
     """Unsigned transaction body. Signatures are not included."""
-    if not 0 <= len(inputs) <= INPUT_COUNT_MAX:
-        raise ValueError("input_count outside 0..=1000")
+    if not 1 <= len(inputs) <= INPUT_COUNT_MAX:
+        raise ValueError("input_count outside 1..=1000")
     if not 1 <= len(outputs) <= OUTPUT_COUNT_MAX:
         raise ValueError("output_count outside 1..=1000")
 
@@ -274,6 +279,55 @@ def make_tx(
     }
 
 
+def make_coinbase(
+    name: str,
+    description: str,
+    height: int,
+    keys: dict[str, tuple[Ed25519PrivateKey, bytes]],
+    recipient_id: str = "A",
+) -> dict:
+    """One input, all-zero prev_tx_id, output_index = height, no signature.
+
+    The body layout is the ordinary transaction layout. The height is what
+    makes two otherwise identical coinbases hash to different ids.
+    """
+    if type(height) is not int or not 0 <= height <= 0xFFFFFFFF:
+        raise ValueError("coinbase height must fit in a u32")
+    recipient = keys[recipient_id][1]
+    body = encode_tx_body(
+        VERSION,
+        [(ZERO_TX_ID, height)],
+        [(COINBASE_AMOUNT, recipient)],
+    )
+    preimage = TX_TAG + body
+    return {
+        "body_hex": body.hex(),
+        "description": description,
+        "fields": {
+            "inputs": [
+                {
+                    "output_index": height,
+                    "prev_tx_id_hex": ZERO_TX_ID.hex(),
+                }
+            ],
+            "outputs": [
+                {
+                    "amount": COINBASE_AMOUNT,
+                    "recipient_public_key_hex": recipient.hex(),
+                }
+            ],
+            "version": VERSION,
+        },
+        "kind": "coinbase",
+        "name": name,
+        "signatures_hex": [],
+        "signing_keys": [],
+        "signing_preimage_hex": preimage.hex(),
+        "tx_id_hex": sha256(preimage).hex(),
+        "tx_id_preimage_hex": preimage.hex(),
+    }
+
+
 def finish_block(
     name: str,
     description: str,
@@ -308,6 +362,7 @@ def finish_block(
         raise RuntimeError("signature verified for a header with a different nonce")
     return {
         "block_hash_hex": digest.hex(),
+        "coinbase_matches_height": True,
         "description": description,
         "difficulty_bits": shared["difficulty_bits"],
         "fields": {
@@ -347,7 +402,7 @@ def make_blocks(
     tx_root = sha256(b"".join(tx_ids))
     proposer_id = "A"
     _private, proposer_public = keys[proposer_id]
-    height = 42
+    height = BLOCK_HEIGHT
     timestamp_ms = 1_735_689_600_000  # 2025-01-01T00:00:00.000Z
     prev_block_hash = bytes(32)
     # Nonce is the last 8 bytes. Drop that placeholder so the search can append
@@ -380,8 +435,8 @@ def make_blocks(
         "Same transaction ids, height 42, timestamp_ms 1735689600000, "
         "all-zero prev_block_hash, proposer test key A, difficulty_bits 16. "
         "The signature is over BLOCK_TAG || header after that nonce is final, "
-        "and it is not part of the hash. Coinbase rules remain SCRUM-16, so "
-        "this is a header fixture, not a consensus-valid chain block."
+        "and it is not part of the hash. The first transaction is the coinbase "
+        "whose output_index equals this height."
     )
     return {
         "block": finish_block(
@@ -466,16 +521,78 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
         outputs=[(MAX_AMOUNT, "A")],
         keys=keys,
     )
-    transactions = [sample, normal, min_amount, max_amount]
+    # Same recipient and amount at two heights. The height in the input is
+    # the only difference, so the transaction ids must differ.
+    coinbase_height_1 = make_coinbase(
+        "coinbase_height_1",
+        "Coinbase at height 1. One input, prev_tx_id all zeros, "
+        "output_index 1, no signature. Output pays test key A the fixture "
+        "amount 50000000.",
+        1,
+        keys,
+    )
+    coinbase_height_2 = make_coinbase(
+        "coinbase_height_2",
+        "Coinbase at height 2. Same key and amount as coinbase_height_1. "
+        "The transaction id differs because output_index is the height.",
+        2,
+        keys,
+    )
+    coinbase_height_42 = make_coinbase(
+        "coinbase_height_42",
+        "Coinbase for the mined block at height 42. Same key and amount as "
+        "the height 1 and 2 coinbases. output_index equals the block height.",
+        BLOCK_HEIGHT,
+        keys,
+    )
+    if coinbase_height_1["tx_id_hex"] == coinbase_height_2["tx_id_hex"]:
+        raise RuntimeError("coinbases at different heights produced one tx id")
+    if coinbase_height_1["fields"]["outputs"] != coinbase_height_2["fields"]["outputs"]:
+        raise RuntimeError("coinbase vectors were meant to share key and amount")
+    spend_zero = make_tx(
+        "spend_zero_prev_tx_id",
+        "Invalid non-coinbase. The only input references the all-zero "
+        "prev_tx_id and carries a signature. A node must reject it.",
+        inputs=[(ZERO_TX_ID, 0, "A")],
+        outputs=[(1000, "B")],
+        keys=keys,
+    )
+    spend_zero["kind"] = "invalid_non_coinbase"
+    spend_zero["reject_reason"] = "non_coinbase_zero_prev_tx_id"
+    # The original four stay first so their bytes can be compared in place.
+    transactions = [
+        sample,
+        normal,
+        min_amount,
+        max_amount,
+        coinbase_height_1,
+        coinbase_height_2,
+        coinbase_height_42,
+        spend_zero,
+    ]
+    block_txs = [coinbase_height_42, sample, normal, min_amount, max_amount]
+    mismatch_txs = [coinbase_height_1, sample, normal, min_amount, max_amount]
     catalogue = [
         key_record(key_id, SEEDS[key_id], public_only[key_id])
         for key_id in ("A", "B")
     ]
-    blocks = make_blocks(transactions, keys)
+    blocks = make_blocks(block_txs, keys)
+    mismatch = make_blocks(mismatch_txs, keys)["block"]
+    mismatch["name"] = "block_coinbase_height_mismatch"
+    mismatch["role"] = "coinbase_height_mismatch"
+    mismatch["coinbase_matches_height"] = False
+    mismatch["description"] = (
+        "Negative block. Header height is 42 but the first transaction is "
+        "coinbase_height_1, whose output_index is 1. The nonce is the smallest "
+        "from 0 that meets difficulty 16, so the failure is the height mismatch, "
+        "not the proof of work. A non-coinbase must not use the all-zero "
+        "prev_tx_id either; see spend_zero_prev_tx_id."
+    )
     return {
         "block": blocks["block"],
         "block_boundary_fail": blocks["block_boundary_fail"],
         "block_boundary_pass": blocks["block_boundary_pass"],
+        "block_coinbase_height_mismatch": mismatch,
         "constants": {
             "block_header_field_order": [
                 "version",
@@ -501,7 +618,10 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
             "endianness": "unsigned-big-endian",
             "hash": "SHA-256",
             "input_count_max": INPUT_COUNT_MAX,
-            "input_count_min": 0,
+            "coinbase_prev_tx_id_hex": ZERO_TX_ID.hex(),
+            "coinbase_signature_count": 0,
+            "input_count_min": INPUT_COUNT_MIN,
+            "max_block_height": 2**32 - 1,
             "input_field_order": ["prev_tx_id", "output_index"],
             "max_amount": MAX_AMOUNT,
             "output_count_max": OUTPUT_COUNT_MAX,
@@ -529,8 +649,12 @@ def document_for(keys: dict[str, tuple[Ed25519PrivateKey, bytes]]) -> dict:
             "TEST ONLY keys. signing_preimage_hex and tx_id_preimage_hex name the "
             "two transaction preimages; both are TX_TAG || tx_body, signatures "
             "excluded. signatures_hex[i] was produced by signing_keys[i] over that "
-            "preimage and aligns with fields.inputs[i]. signer identity is not a "
-            "serialised field. The block preimage is BLOCK_TAG || header, and "
+            "preimage and aligns with fields.inputs[i], except a coinbase, which "
+            "has signatures_hex empty. signer identity is not a serialised "
+            "field. A coinbase is one input whose prev_tx_id is 32 zero bytes "
+            "and whose output_index is the block height. It must be the first "
+            "transaction, and a non-coinbase must not use that prev_tx_id. The "
+            "block preimage is BLOCK_TAG || header, and "
             "that header includes difficulty_bits and the final nonce. The "
             "proposer signs that preimage after mining. The signature is "
             "excluded from the block hash. A test chain fixes difficulty_bits "
@@ -567,7 +691,8 @@ def main() -> None:
     OUTPUT_PATH.write_text(text, encoding="utf-8", newline="\n")
     print(f"wrote {OUTPUT_PATH}")
     for tx in payload["transactions"]:
-        print(f"{tx['name']} {tx['tx_id_hex']}")
+        kind = tx.get("kind", "tx")
+        print(f"{tx['name']} {tx['tx_id_hex']} kind={kind}")
     for key in ("block", "block_boundary_pass", "block_boundary_fail"):
         block = payload[key]
         print(

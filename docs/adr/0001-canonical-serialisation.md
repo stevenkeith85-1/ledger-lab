@@ -12,13 +12,15 @@ Accepted.
 
 Before acceptance, the block header was extended for proof of work. `difficulty_bits` (`u32`) and `nonce` (`u64`) were appended, in that order, after `proposer_public_key`. Version stays `1` and `BLOCK_TAG` stays `LedgerLab/block/v1`, because this layout had not shipped. The block hash is still `SHA-256(BLOCK_TAG || header)` over the full 128-byte header. The proposer signature stays outside that header.
 
+Before acceptance, the coinbase was fixed in this same version. It is one ordinary input whose `prev_tx_id` is 32 zero bytes and whose `output_index` is the block height, and it carries no signature. An `input_count` of 0 is not a coinbase. Two coinbases that pay the same key the same amount at different heights therefore have different transaction ids.
+
 ## Context
 
 LedgerLab is a single-node UTXO chain. A transaction id is the hash of a transaction. A block hash is the hash of a header. Ed25519 signatures cover those same messages. Python on the node, SQL in Postgres, a future React or Angular client, and the CI vectors all have to produce those bytes without consulting each other.
 
 If two encoders disagree by a single byte, the id changes, the signature fails, and a block built by one implementation is invalid to the other. The encoding therefore has to be a function: one logical transaction, one byte string. It also has to be small enough to reimplement from this document with `int.to_bytes` and SHA-256, because the check that matters is an independent implementation, not a second call into the node.
 
-[SCRUM-15](https://stevenkeith85.atlassian.net/browse/SCRUM-15) implements transactions against this ADR. [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) implements blocks. [SCRUM-17](https://stevenkeith85.atlassian.net/browse/SCRUM-17) turns the vectors into a CI test. Amounts carried in the body are the integers defined by [ADR 0002](0002-integer-amounts.md).
+[SCRUM-15](https://stevenkeith85.atlassian.net/browse/SCRUM-15) implements transactions against this ADR. [SCRUM-17](https://stevenkeith85.atlassian.net/browse/SCRUM-17) turns the vectors into a CI test. Amounts carried in the body are the integers defined by [ADR 0002](0002-integer-amounts.md).
 
 Primitives already chosen, and not reopened here: SHA-256 (32-byte digest) and Ed25519 as specified by RFC 8032.
 
@@ -74,7 +76,7 @@ The body is the unsigned transaction. Bytes in this order:
 | Order | Field | Width | Rule |
 | --- | --- | --- | --- |
 | 1 | `version` | `u32` | Must be `1`. |
-| 2 | `input_count` | `u32` | `0..=1000`. Check the bound before reading the inputs. |
+| 2 | `input_count` | `u32` | `1..=1000`. Check the bound before reading the inputs. |
 | 3 | `inputs` | `input_count` times one input | Each input is the next row. |
 | 4 | `output_count` | `u32` | `1..=1000`. Check the bound before reading the outputs. |
 | 5 | `outputs` | `output_count` times one output | Each output is the last row. |
@@ -84,7 +86,7 @@ Each input, in order:
 | Order | Field | Width | Rule |
 | --- | --- | --- | --- |
 | 1 | `prev_tx_id` | 32 raw bytes | The referenced transaction id. Not hex text. |
-| 2 | `output_index` | `u32` | Index of the output inside that transaction. |
+| 2 | `output_index` | `u32` | Index of the output inside that transaction. In a coinbase, this field is the block height. |
 
 Each output, in order:
 
@@ -101,7 +103,7 @@ Body length is `12 + 36 * input_count + 40 * output_count` bytes. Offsets inside
 - `output_count` at `8 + 36 * input_count`
 - first output at `12 + 36 * input_count`; output `j` is 40 bytes
 
-`input_count` of `0` encodes no input bytes and then the output list. The consensus meaning of that shape is an open point (below). `output_count` of `0` is not a legal body.
+`input_count` of `0` is not a legal body. `output_count` of `0` is not a legal body.
 
 ### Two transaction preimages
 
@@ -109,18 +111,37 @@ Both preimages are named here. They are the same byte string.
 
 | Preimage | Bytes | What consumes it |
 | --- | --- | --- |
-| Signing preimage | `TX_TAG` concatenated with `tx_body` | Ed25519, once per input |
+| Signing preimage | `TX_TAG` concatenated with `tx_body` | Ed25519, once per non-coinbase input. A coinbase has no signature. |
 | Transaction-id preimage | `TX_TAG` concatenated with `tx_body` | SHA-256, producing the 32-byte transaction id |
 
 `tx_id = SHA-256(TX_TAG || tx_body)`.
 
-Every input signs that same preimage. The scheme is sighash-all: one signature authorises the whole body, including the other inputs and every output. There is no other sighash mode.
+Every non-coinbase input signs that same preimage. The scheme is sighash-all: one signature authorises the whole body, including the other inputs and every output. There is no other sighash mode. A coinbase has a signature count of 0.
 
-Signatures are not part of the body and not part of either preimage. Each signature is the 64-byte RFC 8032 Ed25519 signature of the signing preimage, under the private key that can spend that input. The list is in input order. Because the id hashes the body and the tag only, replacing a signature does not change the id.
+Signatures are not part of the body and not part of either preimage. Each non-coinbase signature is the 64-byte RFC 8032 Ed25519 signature of the signing preimage, under the private key that can spend that input. The list is in input order. Because the id hashes the body and the tag only, replacing a signature does not change the id. A transaction id must be unique across the chain.
 
 Verification uses RFC 8032, which rejects a non-canonical `S`. The 64-byte value in the vector file is the only signature that verifies for that key and preimage.
 
-When a complete transaction is one byte string, the envelope is the body followed by the raw signatures in input order, 64 bytes each. A zero-input body has an empty signature list, so the envelope equals the body. Trailing bytes after the envelope are rejected. Postgres columns and JSON hex fields may store the body and the signature list separately; whichever container is used, the signature bytes stay raw, stay in input order, and stay out of both preimages.
+When a complete transaction is one byte string, the envelope is the body followed by the raw signatures in input order, 64 bytes each. A coinbase envelope is the body alone. Trailing bytes after the envelope are rejected. Postgres columns and JSON hex fields may store the body and the signature list separately; whichever container is used, the signature bytes stay raw, stay in input order, and stay out of both preimages. A coinbase signature list is empty.
+
+### Coinbase
+
+A coinbase is an ordinary transaction body with one defined input. The layout does not gain a coinbase-only field.
+
+| Field | Value |
+| --- | --- |
+| `input_count` | `1` |
+| `prev_tx_id` | 32 bytes of `0x00` |
+| `output_index` | the block height, as a `u32` |
+| signature count | `0` |
+
+Outputs are ordinary outputs and follow ADR 0002. The vectors use one output of the fixture amount `50000000` paid to one key. That amount is not a protocol reward and it is not a supply cap. `output_count` remains `1..=1000`.
+
+- The first transaction of every block is a coinbase. Only that transaction may be a coinbase.
+- The coinbase `output_index` must equal the block's `height`.
+- `height` must fit in a `u32`. A block whose `height` is greater than `2**32 - 1` (`4294967295`) is rejected, because the coinbase input cannot store it. Heights above that are out of scope for this toy chain. The header field stays a `u64`.
+- A non-coinbase transaction has `input_count` in `1..=1000` and one signature per input. None of its inputs may use the all-zero `prev_tx_id`.
+- A transaction id must be unique across the chain. Putting the height in the coinbase input is what makes a fixed reward to the same key differ from block to block.
 
 ### Block header
 
@@ -137,7 +158,7 @@ The header is 128 bytes, in this order:
 | 116 | `difficulty_bits` | `u32` | Unsigned big-endian. Legal values are `0` through `255` inclusive. |
 | 120 | `nonce` | `u64` | Unsigned big-endian. Mining writes the final value here, before the header is hashed or signed. |
 
-`tx_root = SHA-256(tx_id_0 || tx_id_1 || ... || tx_id_n-1)`, the concatenation of the raw 32-byte transaction ids in block order. The hash input is those raw digests, not their hex encoding. Zero transactions produce `SHA-256` of the empty string. Whether a block with zero transactions is valid is a consensus question for SCRUM-16; the hash of the empty concatenation is the encoding either way.
+`tx_root = SHA-256(tx_id_0 || tx_id_1 || ... || tx_id_n-1)`, the concatenation of the raw 32-byte transaction ids in block order. The hash input is those raw digests, not their hex encoding. The first id is the coinbase. Zero transactions would hash the empty string, and that block is rejected because it has no coinbase.
 
 This is a single hash of the concatenated ids, not a Merkle tree. A Merkle tree is the upgrade path when a light client needs inclusion proofs. It is not the commitment today.
 
@@ -206,7 +227,10 @@ A decoder accepts a byte string only when it is exactly the encoding this ADR de
 - Reject `difficulty_bits` outside `0..=255`. The field is a `u32`, so `256` and any larger integer fit in the field and are still rejected.
 - Reject a block whose `difficulty_bits` differs from the genesis block of that chain. Test chains set the value in their own genesis.
 - Reject a decoded header whose block hash, as a big-endian unsigned 256-bit integer, is not strictly less than `2**(256 - difficulty_bits)`. The header can be the right width and still fail this check.
-- Reject `input_count` outside `0..=1000`, and `output_count` outside `1..=1000`, before allocating or reading that many items.
+- Reject `input_count` outside `1..=1000`, and `output_count` outside `1..=1000`, before allocating or reading that many items. `input_count` of 0 is rejected.
+- Reject a block whose first transaction is not a coinbase, a block with a coinbase in any later position, or a coinbase whose `output_index` is not the block height.
+- Reject a block whose `height` is greater than `2**32 - 1`.
+- Reject a non-coinbase transaction that references the all-zero `prev_tx_id`.
 - Reject anything that is not the single fixed-width form: no compact-size integers, no DER or PEM wrapping of keys or signatures, no hex inside the hashed bytes.
 - `encode(decode(b)) == b` for a transaction body, a transaction envelope, a block header, and a signed header.
 
@@ -223,7 +247,7 @@ The version field is inside the hashed and signed body and header, so a body wit
 - **Cross-language reproducibility.** Fixed widths, unsigned big-endian, raw keys, and SHA-256 are the whole codec. No locale, no map sort, no JSON number parser on the hashed path.
 - **Versioning.** The version field and the domain tag are the only extension mechanism. Old signatures do not verify under a new tag.
 - **Malleability.** The transaction id does not cover signatures, so a different signature byte string is a different envelope and the same id. Ed25519's deterministic, canonical signature removes the usual second-signature trick; excluding the signature from the hash keeps the id stable even if a verifier is wrong about canonical `S`.
-- **Sighash.** Every input signs the entire body. A signer cannot authorise one output and leave the rest open. Adding a sighash mode is a new version and a new tag.
+- **Sighash.** Every non-coinbase input signs the entire body. A signer cannot authorise one output and leave the rest open. Adding a sighash mode is a new version and a new tag. A coinbase has no signature.
 - **Allocation.** The count limits are part of decoding. A million-input message fails the `u32` bound check instead of allocating.
 - **Commitment shape.** `tx_root` is a hash of concatenated ids. Light-client inclusion proofs need a Merkle tree later. Until that ADR, clients that want inclusion rehash the full id list.
 - **What the block hash covers.** It covers the 128-byte header, including `difficulty_bits` and `nonce`, and nothing after it. Transaction signatures and the proposer signature are checked as signatures. The proposer signature is computed from the finished preimage, so it commits to the mined nonce without changing the hash. Storage that rewrites a signature still has to pass verification on read.
@@ -240,11 +264,16 @@ The file is the oracle for SCRUM-15 and for the SCRUM-17 CI test. It contains:
 | `normal` | Two inputs and two outputs. Key A signs input 0, key B signs input 1. The second `output_index` is `65539` (`00 01 00 03`) and the second amount is `4294967297` (`00 00 00 01 00 00 00 01`). |
 | `min_amount` | One output of amount `1`, the eight bytes `00 00 00 00 00 00 00 01`. |
 | `max_amount` | One output of amount `9007199254740991`, the eight bytes `00 1f ff ff ff ff ff ff`. |
-| `block` | The 128-byte header over those four ids. Height `42`, `timestamp_ms` `1735689600000` (`2025-01-01T00:00:00.000Z`), `prev_block_hash` thirty-two `0x00` bytes, proposer test key A, `difficulty_bits` `16`. Nonce `10858` is the smallest from 0 whose hash is under the target (17 leading zero bits). Hash `0000539d75b3017735c36483890674eb12ea7806008313f8b9c06f5eb5bb566a`. |
-| `block_boundary_pass` | Same header fields, nonce `27337`. The hash has exactly 16 leading zero bits and passes. Hash `00008db647673b378125096adf951c047d07de4d7f7f5766639d2c848cf2c12e`. |
-| `block_boundary_fail` | Same header fields, nonce `17789`. The hash has exactly 15 leading zero bits and fails the target. The proposer signature on this header is still valid. Hash `00015a66a4bab45ba3842bd27152aa9c54a20026ffe07cd5f367515d0427578b`. |
+| `coinbase_height_1` | Coinbase at height 1. One input, `prev_tx_id` thirty-two `0x00` bytes, `output_index` `1`, no signature. One output of `50000000` to test key A. Id `49037913630a8a18719c8299f02133fea2835dcb90b52bdea250c27f11de8b8c`. |
+| `coinbase_height_2` | Same key and amount at height 2. Id `34f7b61c92bf43f5ef1c542a79409063241758ef38288d332dd83f615ebd83fb`. |
+| `coinbase_height_42` | Same key and amount at height 42, the coinbase inside the mined block. Id `c8b76f181fc8fac43deff12b0d9f2b221dbaa670d69612313d92644af4dfc061`. |
+| `spend_zero_prev_tx_id` | Invalid non-coinbase. One signed input whose `prev_tx_id` is thirty-two `0x00` bytes. A node rejects it. |
+| `block` | 128-byte header. First transaction is `coinbase_height_42`, then `sample`, `normal`, `min_amount`, `max_amount`. Height `42`, `timestamp_ms` `1735689600000` (`2025-01-01T00:00:00.000Z`), `prev_block_hash` thirty-two `0x00` bytes, proposer test key A, `difficulty_bits` `16`. Nonce `6617` is the smallest from 0 whose hash is under the target (18 leading zero bits). Hash `000038aa8c7b27aaf63b436cc6770e589f8c720f643499a3e2a7442da43f5dcc`. |
+| `block_boundary_pass` | Same header fields and transaction ids, nonce `10657`. The hash has exactly 16 leading zero bits and passes. Hash `0000cf60acd4bc42024a6e73320157418c96ce6e4bd97f1c5d6a0d4f04fe6d8e`. |
+| `block_boundary_fail` | Same header fields and transaction ids, nonce `39612`. The hash has exactly 15 leading zero bits and fails the target. The proposer signature on this header is still valid. Hash `0001b21d3de8604e314ee3b689b783c4cd87cc8d749d76f3fc2a96f6098b51a2`. |
+| `block_coinbase_height_mismatch` | Header height `42`, but the first transaction is `coinbase_height_1` (`output_index` `1`). Nonce `162336` meets difficulty 16. The block is still invalid. Hash `00005b98e58590f7a5ff1c6c18ba307eae942f0679ba7221322fc164e4277384`. |
 
-On each transaction, `fields` holds the logical values (`prev_tx_id` and public keys as lowercase hex, counts and amounts as JSON integers). `body_hex` is the body. `signing_preimage_hex` and `tx_id_preimage_hex` are both `TX_TAG || tx_body`; they are equal, and the names exist so a test can tell the two roles apart. `tx_id_hex` is SHA-256 of that preimage. `signatures_hex[i]` matches `signing_keys[i]` and `fields.inputs[i]`. Seeds and public keys are hex, next to the warning `TEST ONLY - never use these keys for real value`, on the top-level `keys` array and on every signing key. Test key A has seed `00 01 … 1f`. Test key B has seed `20 21 … 3f`.
+On each transaction, `fields` holds the logical values (`prev_tx_id` and public keys as lowercase hex, counts and amounts as JSON integers). `body_hex` is the body. `signing_preimage_hex` and `tx_id_preimage_hex` are both `TX_TAG || tx_body`; they are equal, and the names exist so a test can tell the two roles apart. `tx_id_hex` is SHA-256 of that preimage. For a non-coinbase, `signatures_hex[i]` matches `signing_keys[i]` and `fields.inputs[i]`. A coinbase has both lists empty. Seeds and public keys are hex, next to the warning `TEST ONLY - never use these keys for real value`, on the top-level `keys` array and on every signing key that exists. Test key A has seed `00 01 … 1f`. Test key B has seed `20 21 … 3f`.
 
 On each block vector, `fields` is the header, including `difficulty_bits` and `nonce`. `header_hex` is those 128 bytes. `preimage_hex` is `BLOCK_TAG || header` with that final nonce. `block_hash_hex` is SHA-256 of the preimage. `proposer_signature_hex` is the Ed25519 signature of that same preimage, produced after the nonce was chosen, and it does not verify over the bare hash or over a header with a different nonce. `leading_zero_bits` and `meets_pow_target` record the boundary check. `tx_ids_hex` is the raw ids that were concatenated, in order.
 
@@ -254,7 +283,6 @@ The previous-transaction ids inside the vectors are synthetic 32-byte patterns. 
 
 ### Open points
 
-- **Coinbase.** `input_count = 0` is a legal encoding: no input records, then the outputs, and an empty signature list. The only consensus use is a coinbase. Eligibility, the reward, maturity, and any extra coinbase field belong to [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16). SCRUM-16 should adopt this zero-input layout. Extra coinbase bytes require a new transaction version and a new `TX_TAG`.
-- **Empty blocks.** The `tx_root` of no transactions is SHA-256 of zero bytes. SCRUM-16 decides whether such a block is valid.
-- **Proof of work rationale.** The target comparison, the `0..=255` range, and the rule that `difficulty_bits` is fixed in genesis are stated above. Why the chain uses proof of work is [ADR 0003](0003-consensus-proof-of-work.md). Coinbase reward and eligibility stay with [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16).
+- **Block height.** Heights above `2**32 - 1` are rejected. They are out of scope for this toy chain.
+- **Proof of work rationale.** The target comparison, the `0..=255` range, and the rule that `difficulty_bits` is fixed in genesis are stated above. Why the chain uses proof of work is [ADR 0003](0003-consensus-proof-of-work.md).
 - **`AGENTS.md`.** [SCRUM-13](https://stevenkeith85.atlassian.net/browse/SCRUM-13) is adding `AGENTS.md`. That guide will link to this ADR and will not copy the layout. This change does not edit `AGENTS.md`.

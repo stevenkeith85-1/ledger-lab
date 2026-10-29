@@ -1,38 +1,41 @@
 {
   "block": {
-    "block_hash_hex": "0000539d75b3017735c36483890674eb12ea7806008313f8b9c06f5eb5bb566a",
-    "description": "Smallest nonce from 0 whose block hash, as a big-endian integer, is strictly less than 2**(256 - 16). Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. Coinbase rules remain SCRUM-16, so this is a header fixture, not a consensus-valid chain block.",
+    "block_hash_hex": "000038aa8c7b27aaf63b436cc6770e589f8c720f643499a3e2a7442da43f5dcc",
+    "coinbase_matches_height": true,
+    "description": "Smallest nonce from 0 whose block hash, as a big-endian integer, is strictly less than 2**(256 - 16). Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. The first transaction is the coinbase whose output_index equals this height.",
     "difficulty_bits": 16,
     "fields": {
       "difficulty_bits": 16,
       "height": 42,
-      "nonce": 10858,
+      "nonce": 6617,
       "prev_block_hash_hex": "0000000000000000000000000000000000000000000000000000000000000000",
       "proposer_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "timestamp_ms": 1735689600000,
-      "tx_root_hex": "7c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f",
+      "tx_root_hex": "3706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6",
       "version": 1
     },
-    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000002a6a",
-    "leading_zero_bits": 17,
+    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000003706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b80000001000000000000019d9",
+    "leading_zero_bits": 18,
     "meets_pow_target": true,
     "name": "block",
-    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000002a6a",
+    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000003706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b80000001000000000000019d9",
     "proposer_key": {
       "key_id": "A",
       "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "warning": "TEST ONLY - never use these keys for real value"
     },
-    "proposer_signature_hex": "318b3c65f8115b45c71f4ba9dda29a452725c610cc0a33ae3585e9f9e042e90df217a68af83bfbb469bdd01f9ede38bcf25550f6eb90b1768d48c7845e637705",
+    "proposer_signature_hex": "e5c21f78fc8fe3015349dbe68d731fba3b2297bdc62f93b933236b807ce67ee528f3e5e83d897819418299b8a20495093ed19250f61a596948012fc8b72df10b",
     "role": "minimal_valid_nonce",
     "tx_ids_hex": [
+      "c8b76f181fc8fac43deff12b0d9f2b221dbaa670d69612313d92644af4dfc061",
       "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
       "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
       "1bb560646ac63df76912f34cd868010bf229a251b125f1b6265a9a3b27c3f04f",
       "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07"
     ],
     "tx_names": [
+      "coinbase_height_42",
       "sample",
       "normal",
       "min_amount",
@@ -40,39 +43,42 @@
     ]
   },
   "block_boundary_fail": {
-    "block_hash_hex": "00015a66a4bab45ba3842bd27152aa9c54a20026ffe07cd5f367515d0427578b",
-    "description": "Smallest nonce from 0 whose block hash has exactly 15 leading zero bits. That hash fails the target check. The proposer signature is valid for this header; the failure is the work. Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. Coinbase rules remain SCRUM-16, so this is a header fixture, not a consensus-valid chain block.",
+    "block_hash_hex": "0001b21d3de8604e314ee3b689b783c4cd87cc8d749d76f3fc2a96f6098b51a2",
+    "coinbase_matches_height": true,
+    "description": "Smallest nonce from 0 whose block hash has exactly 15 leading zero bits. That hash fails the target check. The proposer signature is valid for this header; the failure is the work. Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. The first transaction is the coinbase whose output_index equals this height.",
     "difficulty_bits": 16,
     "fields": {
       "difficulty_bits": 16,
       "height": 42,
-      "nonce": 17789,
+      "nonce": 39612,
       "prev_block_hash_hex": "0000000000000000000000000000000000000000000000000000000000000000",
       "proposer_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "timestamp_ms": 1735689600000,
-      "tx_root_hex": "7c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f",
+      "tx_root_hex": "3706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6",
       "version": 1
     },
-    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b800000010000000000000457d",
+    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000003706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000009abc",
     "leading_zero_bits": 15,
     "meets_pow_target": false,
     "name": "block_boundary_fail",
-    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b800000010000000000000457d",
+    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000003706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000009abc",
     "proposer_key": {
       "key_id": "A",
       "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "warning": "TEST ONLY - never use these keys for real value"
     },
-    "proposer_signature_hex": "9df33dc309f819b99c6e8f1446c8a4f458dbb753d5bf25b49f04eae3a3f27659f5a0a983315f3d4524f88dc9e393565762557f04727e2169b5cbda7c2ad05e06",
+    "proposer_signature_hex": "5ab50d32df760a097f916d3eeb246354087ea950df001735486b1ef0adda722e3211970de9f04835ae05566dc186aa88656b7ca287ff50340ce198f16f550d09",
     "role": "fewer_leading_zero_bits_fail",
     "tx_ids_hex": [
+      "c8b76f181fc8fac43deff12b0d9f2b221dbaa670d69612313d92644af4dfc061",
       "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
       "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
       "1bb560646ac63df76912f34cd868010bf229a251b125f1b6265a9a3b27c3f04f",
       "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07"
     ],
     "tx_names": [
+      "coinbase_height_42",
       "sample",
       "normal",
       "min_amount",
@@ -80,39 +86,85 @@
     ]
   },
   "block_boundary_pass": {
-    "block_hash_hex": "00008db647673b378125096adf951c047d07de4d7f7f5766639d2c848cf2c12e",
-    "description": "Smallest nonce from 0 whose block hash has exactly 16 leading zero bits. That hash passes the target check. Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. Coinbase rules remain SCRUM-16, so this is a header fixture, not a consensus-valid chain block.",
+    "block_hash_hex": "0000cf60acd4bc42024a6e73320157418c96ce6e4bd97f1c5d6a0d4f04fe6d8e",
+    "coinbase_matches_height": true,
+    "description": "Smallest nonce from 0 whose block hash has exactly 16 leading zero bits. That hash passes the target check. Same transaction ids, height 42, timestamp_ms 1735689600000, all-zero prev_block_hash, proposer test key A, difficulty_bits 16. The signature is over BLOCK_TAG || header after that nonce is final, and it is not part of the hash. The first transaction is the coinbase whose output_index equals this height.",
     "difficulty_bits": 16,
     "fields": {
       "difficulty_bits": 16,
       "height": 42,
-      "nonce": 27337,
+      "nonce": 10657,
       "prev_block_hash_hex": "0000000000000000000000000000000000000000000000000000000000000000",
       "proposer_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "timestamp_ms": 1735689600000,
-      "tx_root_hex": "7c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f",
+      "tx_root_hex": "3706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6",
       "version": 1
     },
-    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000006ac9",
+    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000003706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b80000001000000000000029a1",
     "leading_zero_bits": 16,
     "meets_pow_target": true,
     "name": "block_boundary_pass",
-    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000007c55f16e991c88c59b98fb754cb0d96b15a13a58a4292487050f5ef6ef2b832f000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000006ac9",
+    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000003706d58722d6cc1368ba75f6a8f7a5e4675eecfeaa36853c6e33e6363ab765f6000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b80000001000000000000029a1",
     "proposer_key": {
       "key_id": "A",
       "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
       "warning": "TEST ONLY - never use these keys for real value"
     },
-    "proposer_signature_hex": "38c16d6de1a885df55af52cbf773ddf9239083783ae1da91e597eff0548cb829260fb54a9f834d9fdfb55dcf829c96dc92e54474d3af1aa680c7c9c3b76de80d",
+    "proposer_signature_hex": "142a04b9c51ea4f287bad9cbeb33caf78ac165a8252e089c0cb01c2adb291148552c641005b81d77cc7127b6845120a60f81e785a1b55089710aed863ea7d90e",
     "role": "exact_leading_zero_bits_pass",
     "tx_ids_hex": [
+      "c8b76f181fc8fac43deff12b0d9f2b221dbaa670d69612313d92644af4dfc061",
       "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
       "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
       "1bb560646ac63df76912f34cd868010bf229a251b125f1b6265a9a3b27c3f04f",
       "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07"
     ],
     "tx_names": [
+      "coinbase_height_42",
+      "sample",
+      "normal",
+      "min_amount",
+      "max_amount"
+    ]
+  },
+  "block_coinbase_height_mismatch": {
+    "block_hash_hex": "00005b98e58590f7a5ff1c6c18ba307eae942f0679ba7221322fc164e4277384",
+    "coinbase_matches_height": false,
+    "description": "Negative block. Header height is 42 but the first transaction is coinbase_height_1, whose output_index is 1. The nonce is the smallest from 0 that meets difficulty 16, so the failure is the height mismatch, not the proof of work. A non-coinbase must not use the all-zero prev_tx_id either; see spend_zero_prev_tx_id.",
+    "difficulty_bits": 16,
+    "fields": {
+      "difficulty_bits": 16,
+      "height": 42,
+      "nonce": 162336,
+      "prev_block_hash_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "proposer_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "timestamp_ms": 1735689600000,
+      "tx_root_hex": "5f68c8dfac22b9614bfb1be180c1a8d7cb2c04b06b5a0ac2de2a9d6069892a6d",
+      "version": 1
+    },
+    "header_hex": "00000001000000000000002a00000000000000000000000000000000000000000000000000000000000000005f68c8dfac22b9614bfb1be180c1a8d7cb2c04b06b5a0ac2de2a9d6069892a6d000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000027a20",
+    "leading_zero_bits": 17,
+    "meets_pow_target": true,
+    "name": "block_coinbase_height_mismatch",
+    "preimage_hex": "4c65646765724c61622f626c6f636b2f76310000000001000000000000002a00000000000000000000000000000000000000000000000000000000000000005f68c8dfac22b9614bfb1be180c1a8d7cb2c04b06b5a0ac2de2a9d6069892a6d000001941f297c0003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8000000100000000000027a20",
+    "proposer_key": {
+      "key_id": "A",
+      "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "warning": "TEST ONLY - never use these keys for real value"
+    },
+    "proposer_signature_hex": "9b7a470234194c51ff311019a541b11380a3c70b74677c542f1c2ef630765741363abc0effccfa2c4ea00ffda00b337adff4e7656fcb80817d6eb6bdf67ae70b",
+    "role": "coinbase_height_mismatch",
+    "tx_ids_hex": [
+      "49037913630a8a18719c8299f02133fea2835dcb90b52bdea250c27f11de8b8c",
+      "f90842a1ed6c6d92b9f20705ef78d5e89220a031506fb6adf0e45761514c3e86",
+      "a0a4fd993992efa6c6186a5fbff3d7472e1d9410cb3ff728a53123e6a16fc813",
+      "1bb560646ac63df76912f34cd868010bf229a251b125f1b6265a9a3b27c3f04f",
+      "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07"
+    ],
+    "tx_names": [
+      "coinbase_height_1",
       "sample",
       "normal",
       "min_amount",
@@ -133,18 +185,21 @@
     "block_preimage": "BLOCK_TAG || header",
     "block_tag_ascii": "LedgerLab/block/v1",
     "block_tag_hex": "4c65646765724c61622f626c6f636b2f763100",
+    "coinbase_prev_tx_id_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+    "coinbase_signature_count": 0,
     "difficulty_bits_max": 255,
     "difficulty_bits_min": 0,
     "endianness": "unsigned-big-endian",
     "hash": "SHA-256",
     "header_width_bytes": 128,
     "input_count_max": 1000,
-    "input_count_min": 0,
+    "input_count_min": 1,
     "input_field_order": [
       "prev_tx_id",
       "output_index"
     ],
     "max_amount": 9007199254740991,
+    "max_block_height": 4294967295,
     "output_count_max": 1000,
     "output_count_min": 1,
     "output_field_order": [
@@ -183,7 +238,7 @@
       "warning": "TEST ONLY - never use these keys for real value"
     }
   ],
-  "notes": "TEST ONLY keys. signing_preimage_hex and tx_id_preimage_hex name the two transaction preimages; both are TX_TAG || tx_body, signatures excluded. signatures_hex[i] was produced by signing_keys[i] over that preimage and aligns with fields.inputs[i]. signer identity is not a serialised field. The block preimage is BLOCK_TAG || header, and that header includes difficulty_bits and the final nonce. The proposer signs that preimage after mining. The signature is excluded from the block hash. A test chain fixes difficulty_bits in its genesis; these block vectors use 16. tx_root hashes raw transaction-id bytes, not their hex text. Amounts in this file are JSON integers because every fixture value is inside the safe range; the node JSON API still sends decimal strings (ADR 0002).",
+  "notes": "TEST ONLY keys. signing_preimage_hex and tx_id_preimage_hex name the two transaction preimages; both are TX_TAG || tx_body, signatures excluded. signatures_hex[i] was produced by signing_keys[i] over that preimage and aligns with fields.inputs[i], except a coinbase, which has signatures_hex empty. signer identity is not a serialised field. A coinbase is one input whose prev_tx_id is 32 zero bytes and whose output_index is the block height. It must be the first transaction, and a non-coinbase must not use that prev_tx_id. The block preimage is BLOCK_TAG || header, and that header includes difficulty_bits and the final nonce. The proposer signs that preimage after mining. The signature is excluded from the block hash. A test chain fixes difficulty_bits in its genesis; these block vectors use 16. tx_root hashes raw transaction-id bytes, not their hex text. Amounts in this file are JSON integers because every fixture value is inside the safe range; the node JSON API still sends decimal strings (ADR 0002).",
   "transactions": [
     {
       "body_hex": "00000001000000011111111111111111111111111111111111111111111111111111111111111111000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
@@ -335,6 +390,120 @@
       "signing_preimage_hex": "4c65646765724c61622f74782f763100000000010000000132323232323232323232323232323232323232323232323232323232323232320000000000000001001fffffffffffff03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
       "tx_id_hex": "cf78d239147db83b838136226375012ef5d6de1335ac4f303e485818d8a86b07",
       "tx_id_preimage_hex": "4c65646765724c61622f74782f763100000000010000000132323232323232323232323232323232323232323232323232323232323232320000000000000001001fffffffffffff03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+    },
+    {
+      "body_hex": "0000000100000001000000000000000000000000000000000000000000000000000000000000000000000001000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "description": "Coinbase at height 1. One input, prev_tx_id all zeros, output_index 1, no signature. Output pays test key A the fixture amount 50000000.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 1,
+            "prev_tx_id_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 50000000,
+            "recipient_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+          }
+        ],
+        "version": 1
+      },
+      "kind": "coinbase",
+      "name": "coinbase_height_1",
+      "signatures_hex": [],
+      "signing_keys": [],
+      "signing_preimage_hex": "4c65646765724c61622f74782f7631000000000100000001000000000000000000000000000000000000000000000000000000000000000000000001000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "tx_id_hex": "49037913630a8a18719c8299f02133fea2835dcb90b52bdea250c27f11de8b8c",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f7631000000000100000001000000000000000000000000000000000000000000000000000000000000000000000001000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+    },
+    {
+      "body_hex": "0000000100000001000000000000000000000000000000000000000000000000000000000000000000000002000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "description": "Coinbase at height 2. Same key and amount as coinbase_height_1. The transaction id differs because output_index is the height.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 2,
+            "prev_tx_id_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 50000000,
+            "recipient_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+          }
+        ],
+        "version": 1
+      },
+      "kind": "coinbase",
+      "name": "coinbase_height_2",
+      "signatures_hex": [],
+      "signing_keys": [],
+      "signing_preimage_hex": "4c65646765724c61622f74782f7631000000000100000001000000000000000000000000000000000000000000000000000000000000000000000002000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "tx_id_hex": "34f7b61c92bf43f5ef1c542a79409063241758ef38288d332dd83f615ebd83fb",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f7631000000000100000001000000000000000000000000000000000000000000000000000000000000000000000002000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+    },
+    {
+      "body_hex": "000000010000000100000000000000000000000000000000000000000000000000000000000000000000002a000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "description": "Coinbase for the mined block at height 42. Same key and amount as the height 1 and 2 coinbases. output_index equals the block height.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 42,
+            "prev_tx_id_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 50000000,
+            "recipient_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+          }
+        ],
+        "version": 1
+      },
+      "kind": "coinbase",
+      "name": "coinbase_height_42",
+      "signatures_hex": [],
+      "signing_keys": [],
+      "signing_preimage_hex": "4c65646765724c61622f74782f763100000000010000000100000000000000000000000000000000000000000000000000000000000000000000002a000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+      "tx_id_hex": "c8b76f181fc8fac43deff12b0d9f2b221dbaa670d69612313d92644af4dfc061",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f763100000000010000000100000000000000000000000000000000000000000000000000000000000000000000002a000000010000000002faf08003a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8"
+    },
+    {
+      "body_hex": "00000001000000010000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "description": "Invalid non-coinbase. The only input references the all-zero prev_tx_id and carries a signature. A node must reject it.",
+      "fields": {
+        "inputs": [
+          {
+            "output_index": 0,
+            "prev_tx_id_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+          }
+        ],
+        "outputs": [
+          {
+            "amount": 1000,
+            "recipient_public_key_hex": "29acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
+          }
+        ],
+        "version": 1
+      },
+      "kind": "invalid_non_coinbase",
+      "name": "spend_zero_prev_tx_id",
+      "reject_reason": "non_coinbase_zero_prev_tx_id",
+      "signatures_hex": [
+        "c7b66fe17c99135f882a1ff8b0c6c62d89a33ba9c5595de4f722a496802fc295ebed2601d2fccad24fdafdf24de6fbc5cc4ed68fe20cb57c0042a9c04e660e07"
+      ],
+      "signing_keys": [
+        {
+          "key_id": "A",
+          "public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+          "seed_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+          "warning": "TEST ONLY - never use these keys for real value"
+        }
+      ],
+      "signing_preimage_hex": "4c65646765724c61622f74782f76310000000001000000010000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7",
+      "tx_id_hex": "fc8dbae039c61f7f069637082810b4fae95e8d4c4011d852cd6dcae0baa2df32",
+      "tx_id_preimage_hex": "4c65646765724c61622f74782f76310000000001000000010000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000003e829acbae141bccaf0b22e1a94d34d0bc7361e526d0bfe12c89794bc9322966dd7"
     }
   ],
   "warning": "TEST ONLY - never use these keys for real value"

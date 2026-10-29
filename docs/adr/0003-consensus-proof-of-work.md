@@ -62,7 +62,7 @@ The target is the comparison ADR 0001 states. Read `block_hash` as a big-endian 
 
 ### Difficulty
 
-Difficulty is a chain-level consensus parameter: the `difficulty_bits` of the genesis block. ADR 0001 fixes that rule. Every later block on the chain must carry the same value. Every node that follows the chain is given that same genesis block. A node has no difficulty setting of its own. A header that names any other difficulty is invalid, so a locally edited genesis is a different chain.
+Difficulty is a chain-level consensus parameter: the `difficulty_bits` of the genesis block. ADR 0001 fixes that rule. Every later block on the chain must carry the same value. The node ships the genesis block hash of each chain as a constant, one for the demo chain and one for the test chain. On startup it refuses to open a store whose height-0 block hash differs from the constant for the chain it is running. A node has no difficulty setting of its own. A header that names any other difficulty is invalid, so a locally edited genesis is a different chain.
 
 There is no retarget. The genesis block's value is the required difficulty at every height. Difficulty retargeting is out of scope. A different target rule would be a new ADR.
 
@@ -77,7 +77,7 @@ The test chain is a separate chain. Its genesis block uses `16`, the test-chain 
 
 ### Mining, then the proposer signature
 
-Height `0` is the genesis block: `prev_block_hash` is 32 zero bytes, as ADR 0001 requires. Every later candidate uses height `tip + 1` and the tip's block hash as `prev_block_hash`. `tx_root`, `timestamp_ms`, and `proposer_public_key` are the ADR 0001 fields. `difficulty_bits` is the genesis value. The miner sets `timestamp_ms` from the UTC clock when it builds the candidate. A bound on clock drift is out of scope.
+Height `0` is the shipped genesis block: `prev_block_hash` is 32 zero bytes, as ADR 0001 requires. The node does not mine a replacement for it. Every later candidate uses height `tip + 1` and the tip's block hash as `prev_block_hash`. `tx_root`, `timestamp_ms`, and `proposer_public_key` are the ADR 0001 fields. `difficulty_bits` is the genesis value. The miner sets `timestamp_ms` from the UTC clock when it builds a candidate after genesis. A bound on clock drift is out of scope.
 
 The search writes `nonce = 0` and adds one after each miss, re-encoding the header and hashing it again. The first nonce whose hash meets the target is the nonce of the block. The counter does not wrap. When the next nonce would not fit in a `u64`, the miner drops the candidate and builds a new header.
 
@@ -98,7 +98,13 @@ A block is valid only when all of the following hold:
 3. `SHA-256(BLOCK_TAG || header)` meets the ADR 0001 target for that `difficulty_bits`.
 4. The proposer signature verifies over `BLOCK_TAG || header` for this header, so the signature covers the final nonce.
 5. At height `0`, `prev_block_hash` is 32 zero bytes. At any other height, `prev_block_hash` is the hash of a stored block whose height is one less.
-6. The block's transactions are valid under ADR 0001 and ADR 0002, and `tx_root` is the commitment ADR 0001 defines over their ids in block order.
+6. Every transaction decodes under ADR 0001, every amount satisfies ADR 0002, and `tx_root` is the commitment ADR 0001 defines over their ids in block order.
+7. The first transaction is the coinbase ADR 0001 defines: one input, `prev_tx_id` thirty-two `0x00` bytes, `output_index` equal to the block height, and no signature. No later transaction in the block is a coinbase. A block with no transactions is invalid.
+8. Each non-coinbase input references an output that is unspent in the UTXO set of the parent block. The parent is the block named by `prev_block_hash` on the chain being validated. Under a reorg that set is the candidate branch after undo, not the tip being replaced. At height 0 there is no parent and the UTXO set is empty, so a non-coinbase input in the genesis block is invalid. The coinbase input is not an outpoint and this check does not apply to it.
+9. No two inputs in the block reference the same outpoint. The rule covers two inputs of one transaction and inputs of different transactions.
+10. A non-coinbase input references an output confirmed in an earlier block. An output created by an earlier transaction in the same block is not spendable in that block.
+11. Each non-coinbase signature verifies under the `recipient_public_key` of the output that input spends.
+12. For each non-coinbase transaction, the sum of its input amounts is greater than or equal to the sum of its output amounts. The fee is that difference. It is not a field in the body. The sums are the integer sums from ADR 0002: each output amount is in `1..=MAX_AMOUNT`, and each of the input sum and the output sum is `<= MAX_AMOUNT`. The fee is therefore an integer in `0..=MAX_AMOUNT`. A fee of zero is valid. Coinbase outputs obey the same per-output and output-sum limits. The coinbase has no input amounts.
 
 A block that fails any item is dropped. It is neither stored nor counted as work.
 
@@ -131,6 +137,8 @@ Adopting a chain that diverges from the current tip is one Postgres transaction,
 
 A candidate that only extends the current tip has an empty undo walk. The node applies the new block or blocks in one Postgres transaction ([SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20)).
 
+Apply and reorg both take a row lock on the single chain-tip row inside that Postgres transaction, with `SELECT ... FOR UPDATE`, before changing the UTXO set. The lock is held until the transaction commits or rolls back, so only one apply or reorg runs at a time. After the lock, the node reads the tip again and continues only when the candidate still has strictly greater cumulative work than the locked tip. [SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20) implements the lock and the undo data. [SCRUM-21](https://stevenkeith85.atlassian.net/browse/SCRUM-21) models block apply as a command with an inverse. The inverse consumes the undo data SCRUM-20 stored for that block. The command does not take the place of the row lock or of the single Postgres transaction.
+
 ### Block production and validation
 
 ```mermaid
@@ -161,13 +169,13 @@ flowchart TD
 ## Consequences
 
 - **Header layout.** The header amendment is in scope for this decision and lands on [PR #1](https://github.com/stevenkeith85-1/ledger-lab/pull/1), with ADR 0001 and [docs/adr/vectors/](vectors/). It is part of that change, already on the branch this ADR stacks on. It is not a follow-up. This ADR does not edit ADR 0001 or the vectors. The 128-byte header, the target inequality, and the test-chain difficulty of `16` are taken from ADR 0001.
-- **Blocks.** [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) implements the mining loop, the genesis difficulty check, and fork choice. [SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20) implements persistence of `difficulty_bits` and `nonce`, per-block undo data, and the reorg transaction.
+- **Blocks.** [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16) implements the mining loop, the genesis difficulty check, and fork choice. [SCRUM-20](https://stevenkeith85.atlassian.net/browse/SCRUM-20) implements persistence of `difficulty_bits` and `nonce`, per-block undo data, the reorg transaction, and the chain-tip row lock. [SCRUM-21](https://stevenkeith85.atlassian.net/browse/SCRUM-21) models block apply as a command with an inverse that consumes that undo data.
 - **Transactions.** [SCRUM-15](https://stevenkeith85.atlassian.net/browse/SCRUM-15) is unchanged. Bodies, ids, signatures, and amount limits stay on ADR 0001 and ADR 0002.
 - **Finality.** Proof of work is probabilistic. The tip stays canonical until a valid chain with greater cumulative work replaces it. The sprint 1 demo has one miner, so the tip the node just produced stays in place in practice. The rule still treats the tip as replaceable.
 - **One node.** The sprint 1 process is a single point of failure. That limit is accepted for the demo. Reorg support keeps the UTXO set on the canonical chain. It does not add a second node.
 - **Tests.** Consensus tests use the test genesis (`difficulty_bits` `16`) and a fixed header template, searching from nonce `0`. They check a mined hash against the ADR 0001 target, a proposer signature over that mined header, adoption of a heavier chain, an equal-work chain leaving the tip in place, and a rollback that restores spent outputs and removes created outputs. The serialisation vectors already pin that difficulty, including a hash that passes with exactly 16 leading zero bits and a hash that fails with 15.
 - **Out of scope.** Difficulty retargeting, a validator set, round-robin scheduling, proof of authority, and Byzantine consensus. Any of those, if the premise changes, is a new ADR.
-- **Coinbase and empty blocks.** These stay the open points in ADR 0001. SCRUM-16 decides them. Mining does not change their encoding.
+- **Coinbase.** [ADR 0001](0001-canonical-serialisation.md) defines it: one input whose `prev_tx_id` is thirty-two `0x00` bytes, whose `output_index` is the block height, and which has no signature. It is the first transaction of every block, and the only coinbase in that block. A block with no transactions is invalid. The reward amount remains the open point in [ADR 0002](0002-integer-amounts.md), sized by [SCRUM-16](https://stevenkeith85.atlassian.net/browse/SCRUM-16). Coinbase outputs still have to satisfy ADR 0002. The amount in the vectors is a fixture, not that reward.
 
 ### Non-functional
 

@@ -1,0 +1,17 @@
+---
+description: Engineering standards that keep Ledger Lab free of generated slop
+alwaysApply: true
+---
+
+# Engineering standards
+
+- Change only what the current ticket needs. No drive-by refactors and no work from later tickets.
+- No dead code, unused dependencies, or commented-out alternatives.
+- No speculative abstractions. Add an interface when a second implementation exists.
+- No unexplained magic numbers. Name the value or state why it is that number.
+- Strict typing. mypy in strict mode must pass. Do not silence a type error without a reason.
+- Tests cover the acceptance criteria and the failure paths. Do not add tests that only restate the implementation.
+- No secrets in code, images, fixtures, or logs. Local placeholders live in `.env.example` and are obviously local.
+- Configuration comes from the environment. Do not hard-code hosts, ports, or credentials.
+- Lint, format, and typecheck commands live only in `.pre-commit-config.yaml`. Tool settings live only in `pyproject.toml`.
+- Prefer the standard library and the toolchain pinned for this repository.

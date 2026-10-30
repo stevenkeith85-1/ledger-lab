@@ -1,0 +1,14 @@
+---
+description: Invariants later Ledger Lab tickets must preserve
+alwaysApply: true
+---
+
+# Ledger principles
+
+These bind later tickets. This scaffold does not implement them.
+
+- Hashing and serialisation are deterministic. The architect's ADR owns the byte format.
+- Sign and verify over those canonical bytes, never over a display form.
+- Postgres changes that must succeed or fail together use one transaction.
+
+Architecture decision records live in `docs/adr/`, indexed from `docs/architecture/README.md`, and are owned by the architect.

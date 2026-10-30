@@ -6,7 +6,7 @@ Getting started. The project description, stack, and agent instructions are in [
 
 - [AGENTS.md](AGENTS.md) is the project description.
 - [.cursor/rules/engineering.mdc](.cursor/rules/engineering.mdc) and [.cursor/rules/ledger-principles.mdc](.cursor/rules/ledger-principles.mdc) are the Cursor rules.
-- [docs/architecture/README.md](docs/architecture/README.md) is the architecture entry point.
+- [docs/architecture/README.md](docs/architecture/README.md) is the architecture entry point. ADRs live in `docs/adr/` and are indexed from that page.
 - `src/ledger_lab/` is the node. It serves `GET /health` and `GET /ready`.
 - `tests/` is the pytest suite.
 - `Dockerfile` and `docker-compose.yml` run the node and Postgres.
@@ -30,7 +30,7 @@ This starts Postgres (`postgres:16.15-alpine3.24`) and the node. Both services h
 docker compose up --build --wait
 ```
 
-The node listens on port 8080.
+Postgres is published on `127.0.0.1:5432` and the node on `127.0.0.1:8080`. Both are reachable from this machine only. The node listens on port 8080.
 
 ```bash
 curl -fsS http://127.0.0.1:8080/health
@@ -58,7 +58,9 @@ uv sync
 docker compose up --detach --wait postgres
 ```
 
-`uv sync` creates `.venv` and installs the project and the dev tools (ruff, mypy, pytest, and pre-commit). `uv run` uses that interpreter (Python 3.15.2). The Postgres command returns when its healthcheck is healthy. Compose publishes Postgres on host port 5432.
+`uv sync` creates `.venv` and installs the project and the dev tools (ruff, mypy, pytest, and pre-commit). `uv run` uses that interpreter (Python 3.15.2). The Postgres command returns when its healthcheck is healthy. Compose publishes Postgres on `127.0.0.1`, port 5432.
+
+Running the node on the host needs macOS, Linux or WSL2. Shutdown uses `signal.sigwait` and `signal.pthread_sigmask`, which native Windows does not provide. The Compose stack does not use that host path.
 
 ```bash
 export DATABASE_URL=postgresql://ledger:ledger@127.0.0.1:5432/ledger
@@ -90,6 +92,6 @@ CI in `.github/workflows/ci.yml` runs on pull requests and on pushes to `main`.
 
 ## Troubleshooting
 
-Compose publishes Postgres on port 5432 and the node on port 8080. A process already listening on one of those ports stops that service from starting.
+Compose publishes Postgres on `127.0.0.1:5432` and the node on `127.0.0.1:8080`. A process already listening on one of those ports stops that service from starting.
 
 From the host, `DATABASE_URL` uses `127.0.0.1` and port 5432. The hostname `postgres` is the Compose service name, used by the node container. A host process with that hostname gets `503` and `{"status": "not_ready", "reason": "unreachable"}` from `/ready`. `.env.example` contains the container URL. The host command above is the one that reaches Postgres.

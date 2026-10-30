@@ -1,5 +1,6 @@
 """The node exits 0 on SIGTERM and SIGINT and closes its socket."""
 
+import logging
 import os
 import signal
 import socket
@@ -8,13 +9,18 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
+
+from ledger_lab.__main__ import _serve_until_signal
 
 # Bound for the process to accept /health. Each attempt returns as soon as
 # the connection is refused, or after the per-request timeout below.
 _START_TIMEOUT_SECONDS = 5
 _HEALTH_REQUEST_TIMEOUT_SECONDS = 0.2
+# Pause after a refused connection so the readiness poll does not spin.
+_POLL_INTERVAL_SECONDS = 0.05
 # The process must exit inside this bound after the stop signal.
 _STOP_TIMEOUT_SECONDS = 2
 
@@ -57,6 +63,7 @@ def _wait_until_healthy(port: int, proc: subprocess.Popen[bytes]) -> None:
                 if response.status == 200:
                     return
         except urllib.error.URLError, TimeoutError, OSError:
+            time.sleep(_POLL_INTERVAL_SECONDS)
             continue
     proc.kill()
     raise AssertionError(f"timed out waiting for /health\n{_output(proc)}")
@@ -98,3 +105,27 @@ def test_signal_stops_the_node(stop_signal: signal.Signals) -> None:
         if proc.poll() is None:
             proc.kill()
             proc.wait(timeout=_STOP_TIMEOUT_SECONDS)
+
+
+class _ExplodingServer(ThreadingHTTPServer):
+    def _handle_request_noblock(self) -> None:
+        raise RuntimeError("serve failed")
+
+
+def test_server_failure_exits_1(caplog: pytest.LogCaptureFixture) -> None:
+    server = _ExplodingServer(("127.0.0.1", 0), BaseHTTPRequestHandler)
+    port = server.server_address[1]
+    assert isinstance(port, int)
+    # Queue one connection so the worker's first poll returns immediately.
+    client = socket.create_connection(("127.0.0.1", port))
+    try:
+        caplog.set_level(logging.ERROR, logger="ledger_lab")
+        with pytest.raises(SystemExit) as caught:
+            _serve_until_signal(server)
+        assert caught.value.code == 1
+        assert "serve failed" in caplog.text
+        with pytest.raises(ConnectionRefusedError):
+            socket.create_connection(("127.0.0.1", port), timeout=_HEALTH_REQUEST_TIMEOUT_SECONDS)
+    finally:
+        client.close()
+        server.server_close()

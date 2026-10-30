@@ -11,4 +11,4 @@ These bind later tickets. This scaffold does not implement them.
 - Sign and verify over those canonical bytes, never over a display form.
 - Postgres changes that must succeed or fail together use one transaction.
 
-Architecture decisions live under `docs/architecture/` and are owned by the architect.
+Architecture decision records live in `docs/adr/`, indexed from `docs/architecture/README.md`, and are owned by the architect.

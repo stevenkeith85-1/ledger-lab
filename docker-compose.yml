@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ledger}
       POSTGRES_DB: ${POSTGRES_DB:-ledger}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     # About 40s for a cold start: 2s interval, 20 retries, after a 5s start period.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
@@ -29,7 +29,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DB_CONNECT_TIMEOUT_SECONDS: ${DB_CONNECT_TIMEOUT_SECONDS:-3}
     ports:
-      - "${PORT:-8080}:${PORT:-8080}"
+      - "127.0.0.1:${PORT:-8080}:${PORT:-8080}"
     depends_on:
       postgres:
         condition: service_healthy
